@@ -27,6 +27,7 @@ class Go2Simulator(Node):
         self.robot_path = self.declare_parameter("robot_path", "")
         self.robot = 0
         self.init_pybullet()
+        self.last_msg = None
 
     def init_pybullet(self):
         try:
@@ -34,7 +35,9 @@ class Go2Simulator(Node):
             self.get_logger().info(f"go2_simulator::pybullet:: cid={cid} ")
             if (cid < 0):
                 p.connect(p.GUI, options="--opengl2")
-                self.get_logger().info(f"go2_simulator::connect complete")
+            else:
+                p.connect(p.GUI)
+            self.get_logger().info(f"go2_simulator::connect complete")
             p.setAdditionalSearchPath(pybullet_data.getDataPath())
             self.get_logger().info(f"go2_simulator::loading urdf")
 
@@ -73,6 +76,7 @@ class Go2Simulator(Node):
         self.publisher_state.publish(state_msg)
 
     def apply_cmd(self, msg):
+        current_msg_time = self.get_clock().now()
         for joint_idx in range(12):
             target_position = msg.motor_cmd[joint_idx].q
             target_velocity = msg.motor_cmd[joint_idx].dq
@@ -88,7 +92,8 @@ class Go2Simulator(Node):
             )
 
         p.stepSimulation()
-        time.sleep(0.005)
+        time_diff = (current_msg_time - self.last_msg_time).nanoseconds * 1e-9
+        time.sleep(time_diff)
     
     def get_joint_id(self, joint_name):
         num_joints = p.getNumJoints(self.robot)
