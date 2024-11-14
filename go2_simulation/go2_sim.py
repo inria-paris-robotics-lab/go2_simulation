@@ -56,24 +56,19 @@ class Go2Simulator(Node):
     def update(self):
         state_msg = LowState()
 
-        for joint_idx in range(12):
-            # Read sensors
-            joint_state = pybullet.getJointState(self.robot, self.j_idx[joint_idx])
+        # Read sensors
+        joint_states = pybullet.getJointStates(self.robot, self.j_idx)
+        for joint_idx, joint_state in enumerate(joint_states):
             state_msg.motor_state[joint_idx].mode = 1
             state_msg.motor_state[joint_idx].q = joint_state[0]
             state_msg.motor_state[joint_idx].dq = joint_state[1]
 
-            # Set Actuation
-            target_position = self.last_cmd_msg.motor_cmd[joint_idx].q
-            target_velocity = self.last_cmd_msg.motor_cmd[joint_idx].dq
-            j_id = self.j_idx[joint_idx]
-
-            pybullet.setJointMotorControl2(
-                bodyIndex=self.robot,
-                jointIndex=j_id,
-                controlMode=pybullet.POSITION_CONTROL,
-                targetPosition=target_position,
-                targetVelocity=target_velocity
+        # Set actuation
+        pybullet.setJointMotorControlArray(
+            bodyIndex=self.robot,
+            jointIndices=self.j_idx,
+            controlMode=pybullet.TORQUE_CONTROL,
+            forces=[self.last_cmd_msg.motor_cmd[i].tau for i in range(12)]
             )
 
         # Read IMU
