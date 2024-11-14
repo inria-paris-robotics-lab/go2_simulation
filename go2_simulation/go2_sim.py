@@ -3,7 +3,7 @@ import pybullet_data
 import rclpy
 from rclpy.node import Node
 from unitree_go.msg import LowState, LowCmd
-import time
+import numpy as np
 from example_robot_data import getModelPath
 import os
 
@@ -16,8 +16,9 @@ class Go2Simulator(Node):
         self.publisher_state = self.create_publisher(LowState, "/lowstate", 10)
 
         # Timer to publish periodically
-        self.period = 1./500  # seconds
-        self.timer = self.create_timer(self.period, self.update)
+        self.high_level_period = 1./500  # seconds
+        self.low_level_sub_step = 12
+        self.timer = self.create_timer(self.high_level_period, self.update)
 
         ########################## Cmd
         self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
@@ -45,7 +46,7 @@ class Go2Simulator(Node):
         self.plane_id = pybullet.loadURDF("plane.urdf")
         pybullet.resetBasePositionAndOrientation(self.plane_id, [0, 0, 0], [0, 0, 0, 1])
 
-        pybullet.setTimeStep(self.period)
+        pybullet.setTimeStep(self.high_level_period / self.low_level_sub_step)
 
         self.joint_order = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
 
@@ -72,21 +73,37 @@ class Go2Simulator(Node):
             state_msg.motor_state[joint_idx].q = joint_state[0]
             state_msg.motor_state[joint_idx].dq = joint_state[1]
 
-        # Set actuation
-        pybullet.setJointMotorControlArray(
-            bodyIndex=self.robot,
-            jointIndices=self.j_idx,
-            controlMode=pybullet.TORQUE_CONTROL,
-            forces=[self.last_cmd_msg.motor_cmd[i].tau for i in range(12)]
-        )
-
         # Read IMU
         position, orientation = pybullet.getBasePositionAndOrientation(self.robot)
         state_msg.imu_state.quaternion = orientation
         self.publisher_state.publish(state_msg)
 
-        # Advance simulation by one step
-        pybullet.stepSimulation()
+        q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
+        v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
+        tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)])
+        kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
+        kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
+
+        for _ in range(self.low_level_sub_step):
+            # Get sub step state
+            joint_states = pybullet.getJointStates(self.robot, self.j_idx)
+            q = np.array([joint_state[0] for joint_state in joint_states])
+            v = np.array([joint_state[1] for joint_state in joint_states])
+
+            tau_cmd = tau_des - np.multiply(q-q_des, kp_des) - np.multiply(v-v_des, kd_des)
+
+            # Set actuation
+            pybullet.setJointMotorControlArray(
+                bodyIndex=self.robot,
+                jointIndices=self.j_idx,
+                controlMode=pybullet.TORQUE_CONTROL,
+                forces=tau_cmd
+            )
+
+            # Advance simulation by one step
+            pybullet.stepSimulation()
+
+
 
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
