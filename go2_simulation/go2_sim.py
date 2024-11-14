@@ -16,8 +16,8 @@ class Go2Simulator(Node):
         self.publisher_state = self.create_publisher(LowState, "/lowstate", 10)
 
         # Timer to publish periodically
-        timer_period = 0.1  # seconds
-        self.timer = self.create_timer(timer_period, self.update)
+        self.period = 1./500  # seconds
+        self.timer = self.create_timer(self.period, self.update)
 
         ########################## Cmd
         self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
@@ -44,8 +44,8 @@ class Go2Simulator(Node):
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = pybullet.loadURDF("plane.urdf")
         pybullet.resetBasePositionAndOrientation(self.plane_id, [0, 0, 0], [0, 0, 0, 1])
-        for _ in range(40):
-            pybullet.stepSimulation()
+
+        pybullet.setTimeStep(self.period)
 
         self.joint_order = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
 
@@ -71,7 +71,7 @@ class Go2Simulator(Node):
             pybullet.setJointMotorControl2(
                 bodyIndex=self.robot,
                 jointIndex=j_id,
-                controlMode=pybullet.POSIITON_CONTROL,
+                controlMode=pybullet.POSITION_CONTROL,
                 targetPosition=target_position,
                 targetVelocity=target_velocity
             )
