@@ -17,7 +17,7 @@ class Go2Simulator(Node):
 
         # Timer to publish periodically
         timer_period = 0.1  # seconds
-        self.timer = self.create_timer(timer_period, self.update_state)
+        self.timer = self.create_timer(timer_period, self.update)
 
         ########################## Cmd
         self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
@@ -26,7 +26,7 @@ class Go2Simulator(Node):
         self.robot_path = os.path.join(getModelPath(robot_subpath), robot_subpath)
         self.robot = 0
         self.init_pybullet()
-        self.last_msg = None
+        self.last_cmd_msg = LowCmd()
 
     def init_pybullet(self):
         cid = p.connect(p.SHARED_MEMORY)
@@ -53,37 +53,39 @@ class Go2Simulator(Node):
         for j in self.joint_order:
             self.j_idx.append(self.get_joint_id(j))
 
-    def update_state(self):
+    def update(self):
         state_msg = LowState()
+
         for joint_idx in range(12):
+            # Read sensors
             joint_state = p.getJointState(self.robot, self.j_idx[joint_idx])
             state_msg.motor_state[joint_idx].mode = 1
             state_msg.motor_state[joint_idx].q = joint_state[0]
             state_msg.motor_state[joint_idx].dq = joint_state[1]
 
-        position, orientation = p.getBasePositionAndOrientation(self.robot)
-        state_msg.imu_state.quaternion = orientation
-        self.publisher_state.publish(state_msg)
-
-    def apply_cmd(self, msg):
-        current_msg_time = self.get_clock().now()
-        for joint_idx in range(12):
-            target_position = msg.motor_cmd[joint_idx].q
-            target_velocity = msg.motor_cmd[joint_idx].dq
+            # Set Actuation
+            target_position = self.last_cmd_msg.motor_cmd[joint_idx].q
+            target_velocity = self.last_cmd_msg.motor_cmd[joint_idx].dq
             j_id = self.j_idx[joint_idx]
 
-            # Set joint control using POSITION_CONTROL, VELOCITY_CONTROL, or TORQUE_CONTROL
             p.setJointMotorControl2(
                 bodyIndex=self.robot,
                 jointIndex=j_id,
-                controlMode=p.POSITION_CONTROL,
+                controlMode=p.POSIITON_CONTROL,
                 targetPosition=target_position,
                 targetVelocity=target_velocity
             )
 
+        # Read IMU
+        position, orientation = p.getBasePositionAndOrientation(self.robot)
+        state_msg.imu_state.quaternion = orientation
+        self.publisher_state.publish(state_msg)
+
+        # Advance simulation by one step
         p.stepSimulation()
-        time_diff = (current_msg_time - self.last_msg_time).nanoseconds * 1e-9
-        time.sleep(time_diff)
+
+    def receive_cmd_cb(self, msg):
+        self.last_cmd_msg = msg
 
     def get_joint_id(self, joint_name):
         num_joints = p.getNumJoints(self.robot)
