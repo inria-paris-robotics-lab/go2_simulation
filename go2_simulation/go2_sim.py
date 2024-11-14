@@ -13,16 +13,14 @@ class Go2Simulator(Node):
         super().__init__('go2_simulation')
 
         ########################### State
-        self.state_topic = self.declare_parameter("state_topic_name", "/lowstate").value
-        self.publisher_state = self.create_publisher(LowState, self.state_topic, 10)
+        self.publisher_state = self.create_publisher(LowState, "/lowstate", 10)
 
         # Timer to publish periodically
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.update_state)
 
         ########################## Cmd
-        self.cmd_topic = self.declare_parameter("cmd_topic_name", "/lowcmd").value
-        self.create_subscription(LowCmd, self.cmd_topic, self.apply_cmd, 10)
+        self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
 
         robot_subpath = "go2_description/urdf/go2.urdf"
         self.robot_path = os.path.join(getModelPath(robot_subpath), robot_subpath)
