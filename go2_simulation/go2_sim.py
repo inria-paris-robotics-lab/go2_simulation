@@ -53,6 +53,15 @@ class Go2Simulator(Node):
         for j in self.joint_order:
             self.j_idx.append(self.get_joint_id(j))
 
+        # Somehow this disable joint friction
+        pybullet.setJointMotorControlArray(
+            bodyIndex=self.robot,
+            jointIndices=self.j_idx,
+            controlMode=pybullet.VELOCITY_CONTROL,
+            targetVelocities=[0. for i in range(12)],
+            forces=[0. for i in range(12)],
+        )
+
     def update(self):
         state_msg = LowState()
 
@@ -69,7 +78,7 @@ class Go2Simulator(Node):
             jointIndices=self.j_idx,
             controlMode=pybullet.TORQUE_CONTROL,
             forces=[self.last_cmd_msg.motor_cmd[i].tau for i in range(12)]
-            )
+        )
 
         # Read IMU
         position, orientation = pybullet.getBasePositionAndOrientation(self.robot)
