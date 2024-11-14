@@ -1,4 +1,4 @@
-import pybullet as p
+import pybullet
 import pybullet_data
 import rclpy
 from rclpy.node import Node
@@ -29,23 +29,23 @@ class Go2Simulator(Node):
         self.last_cmd_msg = LowCmd()
 
     def init_pybullet(self):
-        cid = p.connect(p.SHARED_MEMORY)
+        cid = pybullet.connect(pybullet.SHARED_MEMORY)
         self.get_logger().info(f"go2_simulator::pybullet:: cid={cid} ")
         if (cid < 0):
-            p.connect(p.GUI, options="--opengl2")
+            pybullet.connect(pybullet.GUI, options="--opengl2")
         else:
-            p.connect(p.GUI)
+            pybullet.connect(pybullet.GUI)
 
         self.get_logger().info(f"go2_simulator::loading urdf : {self.robot_path}")
-        self.robot = p.loadURDF(self.robot_path, [0, 0, 0.45])
-        p.setGravity(0, 0, -9.81)
+        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.45])
+        pybullet.setGravity(0, 0, -9.81)
 
         # Load plane and robot
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        self.plane_id = p.loadURDF("plane.urdf")
-        p.resetBasePositionAndOrientation(self.plane_id, [0, 0, 0], [0, 0, 0, 1])
+        pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
+        self.plane_id = pybullet.loadURDF("plane.urdf")
+        pybullet.resetBasePositionAndOrientation(self.plane_id, [0, 0, 0], [0, 0, 0, 1])
         for _ in range(40):
-            p.stepSimulation()
+            pybullet.stepSimulation()
 
         self.joint_order = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
 
@@ -58,7 +58,7 @@ class Go2Simulator(Node):
 
         for joint_idx in range(12):
             # Read sensors
-            joint_state = p.getJointState(self.robot, self.j_idx[joint_idx])
+            joint_state = pybullet.getJointState(self.robot, self.j_idx[joint_idx])
             state_msg.motor_state[joint_idx].mode = 1
             state_msg.motor_state[joint_idx].q = joint_state[0]
             state_msg.motor_state[joint_idx].dq = joint_state[1]
@@ -68,29 +68,29 @@ class Go2Simulator(Node):
             target_velocity = self.last_cmd_msg.motor_cmd[joint_idx].dq
             j_id = self.j_idx[joint_idx]
 
-            p.setJointMotorControl2(
+            pybullet.setJointMotorControl2(
                 bodyIndex=self.robot,
                 jointIndex=j_id,
-                controlMode=p.POSIITON_CONTROL,
+                controlMode=pybullet.POSIITON_CONTROL,
                 targetPosition=target_position,
                 targetVelocity=target_velocity
             )
 
         # Read IMU
-        position, orientation = p.getBasePositionAndOrientation(self.robot)
+        position, orientation = pybullet.getBasePositionAndOrientation(self.robot)
         state_msg.imu_state.quaternion = orientation
         self.publisher_state.publish(state_msg)
 
         # Advance simulation by one step
-        p.stepSimulation()
+        pybullet.stepSimulation()
 
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
 
     def get_joint_id(self, joint_name):
-        num_joints = p.getNumJoints(self.robot)
+        num_joints = pybullet.getNumJoints(self.robot)
         for i in range(num_joints):
-            joint_info = p.getJointInfo(self.robot, i)
+            joint_info = pybullet.getJointInfo(self.robot, i)
             if joint_info[1].decode("utf-8") == joint_name:
                 return i
         return None  # Joint name not found
