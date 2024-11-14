@@ -8,6 +8,8 @@ import numpy as np
 from example_robot_data import getModelPath
 import os
 
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
 
 class Go2Simulator(Node):
     def __init__(self):
@@ -16,6 +18,7 @@ class Go2Simulator(Node):
         ########################### State
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
         self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
+        self.tf_broadcaster = TransformBroadcaster(self)
 
         # Timer to publish periodically
         self.high_level_period = 1./500  # seconds
@@ -68,6 +71,9 @@ class Go2Simulator(Node):
     def update(self):
         low_msg = LowState()
         odometry_msg = Odometry()
+        transform_msg = TransformStamped()
+
+        timestamp = self.get_clock().now().to_msg()
 
         # Read sensors
         joint_states = pybullet.getJointStates(self.robot, self.j_idx)
@@ -81,9 +87,11 @@ class Go2Simulator(Node):
         linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot)
         low_msg.imu_state.quaternion = orientation
 
+        # Robot state
         self.lowstate_publisher.publish(low_msg)
 
-        odometry_msg.header.stamp = self.get_clock().now().to_msg()
+        # Odometry / state estimation
+        odometry_msg.header.stamp = timestamp
         odometry_msg.header.frame_id = "odom"
         odometry_msg.child_frame_id = "base"
         odometry_msg.pose.pose.position.x, odometry_msg.pose.pose.position.y, odometry_msg.pose.pose.position.z = position
@@ -91,6 +99,14 @@ class Go2Simulator(Node):
         odometry_msg.twist.twist.linear.x, odometry_msg.twist.twist.linear.y, odometry_msg.twist.twist.linear.z = linear_vel
         odometry_msg.twist.twist.angular.x, odometry_msg.twist.twist.angular.y, odometry_msg.twist.twist.angular.z = angular_vel
         self.odometry_publisher.publish(odometry_msg)
+
+        # Forwar odometry on tf
+        transform_msg.header.stamp = timestamp
+        transform_msg.header.frame_id = "odom"
+        transform_msg.child_frame_id = "base"
+        transform_msg.transform.translation.x, transform_msg.transform.translation.y, transform_msg.transform.translation.z = position
+        transform_msg.transform.rotation.x, transform_msg.transform.rotation.y, transform_msg.transform.rotation.z, transform_msg.transform.rotation.w  = orientation
+        self.tf_broadcaster.sendTransform(transform_msg)
 
         q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
         v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
