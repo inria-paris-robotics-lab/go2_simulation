@@ -3,6 +3,7 @@ import pybullet_data
 import rclpy
 from rclpy.node import Node
 from unitree_go.msg import LowState, LowCmd
+from nav_msgs.msg import Odometry
 import numpy as np
 from example_robot_data import getModelPath
 import os
@@ -13,7 +14,8 @@ class Go2Simulator(Node):
         super().__init__('go2_simulation')
 
         ########################### State
-        self.publisher_state = self.create_publisher(LowState, "/lowstate", 10)
+        self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
+        self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
 
         # Timer to publish periodically
         self.high_level_period = 1./500  # seconds
@@ -64,19 +66,31 @@ class Go2Simulator(Node):
         )
 
     def update(self):
-        state_msg = LowState()
+        low_msg = LowState()
+        odometry_msg = Odometry()
 
         # Read sensors
         joint_states = pybullet.getJointStates(self.robot, self.j_idx)
         for joint_idx, joint_state in enumerate(joint_states):
-            state_msg.motor_state[joint_idx].mode = 1
-            state_msg.motor_state[joint_idx].q = joint_state[0]
-            state_msg.motor_state[joint_idx].dq = joint_state[1]
+            low_msg.motor_state[joint_idx].mode = 1
+            low_msg.motor_state[joint_idx].q = joint_state[0]
+            low_msg.motor_state[joint_idx].dq = joint_state[1]
 
         # Read IMU
         position, orientation = pybullet.getBasePositionAndOrientation(self.robot)
-        state_msg.imu_state.quaternion = orientation
-        self.publisher_state.publish(state_msg)
+        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot)
+        low_msg.imu_state.quaternion = orientation
+
+        self.lowstate_publisher.publish(low_msg)
+
+        odometry_msg.header.stamp = self.get_clock().now().to_msg()
+        odometry_msg.header.frame_id = "odom"
+        odometry_msg.child_frame_id = "base"
+        odometry_msg.pose.pose.position.x, odometry_msg.pose.pose.position.y, odometry_msg.pose.pose.position.z = position
+        odometry_msg.pose.pose.orientation.x, odometry_msg.pose.pose.orientation.y, odometry_msg.pose.pose.orientation.z, odometry_msg.pose.pose.orientation.w = orientation
+        odometry_msg.twist.twist.linear.x, odometry_msg.twist.twist.linear.y, odometry_msg.twist.twist.linear.z = linear_vel
+        odometry_msg.twist.twist.angular.x, odometry_msg.twist.twist.angular.y, odometry_msg.twist.twist.angular.z = angular_vel
+        self.odometry_publisher.publish(odometry_msg)
 
         q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
         v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
