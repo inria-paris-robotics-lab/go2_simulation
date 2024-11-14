@@ -78,7 +78,7 @@ class Go2Simulator(Node):
             p.setJointMotorControl2(
                 bodyIndex=self.robot,
                 jointIndex=j_id,
-                controlMode=p.POSITION_CONTROL,  
+                controlMode=p.POSITION_CONTROL,
                 targetPosition=target_position,
                 targetVelocity=target_velocity
             )
@@ -86,7 +86,7 @@ class Go2Simulator(Node):
         p.stepSimulation()
         time_diff = (current_msg_time - self.last_msg_time).nanoseconds * 1e-9
         time.sleep(time_diff)
-    
+
     def get_joint_id(self, joint_name):
         num_joints = p.getNumJoints(self.robot)
         for i in range(num_joints):
@@ -94,7 +94,7 @@ class Go2Simulator(Node):
             if joint_info[1].decode("utf-8") == joint_name:
                 return i
         return None  # Joint name not found
-    
+
 def main(args=None):
     rclpy.init(args=args)
     try:
