@@ -42,11 +42,11 @@ class Go2Simulator(Node):
         else:
             pybullet.connect(pybullet.GUI)
 
+        # Load robot
         self.get_logger().info(f"go2_simulator::loading urdf : {self.robot_path}")
-        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.45])
-        pybullet.setGravity(0, 0, -9.81)
+        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.2])
 
-        # Load plane and robot
+        # Load ground plane
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = pybullet.loadURDF("plane.urdf")
         pybullet.resetBasePositionAndOrientation(self.plane_id, [0, 0, 0], [0, 0, 0, 1])
@@ -58,6 +58,15 @@ class Go2Simulator(Node):
         self.j_idx = []
         for j in self.joint_order:
             self.j_idx.append(self.get_joint_id(j))
+
+        # Set robot initial config on the ground
+        # initial_q = [0.39, 1.00, -2.51, -0.30, 1.09, -2.61, 0.59, 1.19, -2.59, -0.40, 1.32, -2.79]
+        initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
+        for i, id in enumerate(self.j_idx):
+            pybullet.resetJointState(self.robot, id, initial_q[i], 0.0)
+
+        # gravity and feet friction
+        pybullet.setGravity(0, 0, -9.81)
 
         # Somehow this disable joint friction
         pybullet.setJointMotorControlArray(
@@ -132,8 +141,6 @@ class Go2Simulator(Node):
 
             # Advance simulation by one step
             pybullet.stepSimulation()
-
-
 
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
