@@ -32,19 +32,19 @@ class Go2Simulator(Node):
         self.robot_path = os.path.join(getModelPath(robot_subpath), robot_subpath)
         self.robot = 0
         self.init_pybullet()
-        self.last_cmd_msg = LowCmd()
+        self.last_cmd_msg = None
 
     def init_pybullet(self):
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
         self.get_logger().info(f"go2_simulator::pybullet:: cid={cid} ")
         if (cid < 0):
-            pybullet.connect(pybullet.GUI, options="--opengl2")
+            pybullet.connect(pybullet.GUI, options="--opengl3")
         else:
             pybullet.connect(pybullet.GUI)
 
         # Load robot
         self.get_logger().info(f"go2_simulator::loading urdf : {self.robot_path}")
-        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.2])
+        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.6])
 
         # Load ground plane
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -61,7 +61,10 @@ class Go2Simulator(Node):
 
         # Set robot initial config on the ground
         # initial_q = [0.39, 1.00, -2.51, -0.30, 1.09, -2.61, 0.59, 1.19, -2.59, -0.40, 1.32, -2.79]
-        initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
+        # initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
+        initial_q = [-1.5, 0.1, 0.8, -1.5, -0.1, 0.8, -1.5, 0.1, 1.0, -1.5, -0.1, 1.0]
+        initial_q  = [-0.1, 0.8, -1.5, 0.1, 0.8, -1.5, -0.1, 1.0, -1.5, 0.1, 1.0, -1.5] # Above but corrected for joint order
+
         for i, id in enumerate(self.j_idx):
             pybullet.resetJointState(self.robot, id, initial_q[i], 0.0)
 
@@ -116,6 +119,9 @@ class Go2Simulator(Node):
         transform_msg.transform.translation.x, transform_msg.transform.translation.y, transform_msg.transform.translation.z = position
         transform_msg.transform.rotation.x, transform_msg.transform.rotation.y, transform_msg.transform.rotation.z, transform_msg.transform.rotation.w  = orientation
         self.tf_broadcaster.sendTransform(transform_msg)
+
+        if self.last_cmd_msg is None:
+            return
 
         q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
         v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
