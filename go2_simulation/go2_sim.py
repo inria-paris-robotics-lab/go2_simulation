@@ -3,7 +3,7 @@ import pybullet_data
 import rclpy
 from rclpy.node import Node
 from unitree_go.msg import LowState, LowCmd
-from nav_msgs.msg import Odometry
+
 import numpy as np
 from example_robot_data import getModelPath
 import os
@@ -14,16 +14,19 @@ from geometry_msgs.msg import TransformStamped
 class Go2Simulator(Node):
     def __init__(self):
         super().__init__('go2_simulation')
+        
+        self.q0 = [0.1, -0.1, 0.1, -0.1, 0.8, 0.8, 1.0, 1.0, -1.5, -1.5, -1.5, -1.5]
 
         ########################### State
+        self.last_cmd_msg = LowCmd()
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
-        self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
+
+
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Timer to publish periodically
-        self.high_level_period = 1./500  # seconds
+        self.high_level_period = 1./50  # seconds
         self.low_level_sub_step = 12
-        self.timer = self.create_timer(self.high_level_period, self.update)
 
         ########################## Cmd
         self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
@@ -32,7 +35,13 @@ class Go2Simulator(Node):
         self.robot_path = os.path.join(getModelPath(robot_subpath), robot_subpath)
         self.robot = 0
         self.init_pybullet()
-        self.last_cmd_msg = None
+        
+        # Read CSV file into numpy array
+        self.traj = np.genfromtxt("/home/hamlet/Workspace/reinforcement-learning/IsaacLab/actions.csv", delimiter=",")
+        self.i = 0
+
+        self.timer = self.create_timer(self.high_level_period, self.update)
+
 
     def init_pybullet(self):
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
@@ -44,7 +53,15 @@ class Go2Simulator(Node):
 
         # Load robot
         self.get_logger().info(f"go2_simulator::loading urdf : {self.robot_path}")
-        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.6])
+        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.33])
+        self.get_logger().info(f"go2_simulator::loading urdf : {self.robot}")
+
+        # Print joint names
+        num_joints = pybullet.getNumJoints(self.robot)
+        for i in range(num_joints):
+            joint_info = pybullet.getJointInfo(self.robot, i)
+            self.get_logger().info(f"go2_simulator::joint_info : {joint_info[1].decode('utf-8')}")
+    
 
         # Load ground plane
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -53,20 +70,17 @@ class Go2Simulator(Node):
 
         pybullet.setTimeStep(self.high_level_period / self.low_level_sub_step)
 
-        self.joint_order = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
+        UNITREE_ORDER = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
+        ISAAC_ORDER = ["FL_hip_joint", "FR_hip_joint", "RL_hip_joint", "RR_hip_joint", "FL_thigh_joint", "FR_thigh_joint", "RL_thigh_joint", "RR_thigh_joint", "FL_calf_joint", "FR_calf_joint", "RL_calf_joint", "RR_calf_joint"]
+        self.joint_order = ISAAC_ORDER
 
         self.j_idx = []
         for j in self.joint_order:
             self.j_idx.append(self.get_joint_id(j))
 
-        # Set robot initial config on the ground
-        # initial_q = [0.39, 1.00, -2.51, -0.30, 1.09, -2.61, 0.59, 1.19, -2.59, -0.40, 1.32, -2.79]
-        # initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
-        initial_q = [-1.5, 0.1, 0.8, -1.5, -0.1, 0.8, -1.5, 0.1, 1.0, -1.5, -0.1, 1.0]
-        initial_q  = [-0.1, 0.8, -1.5, 0.1, 0.8, -1.5, -0.1, 1.0, -1.5, 0.1, 1.0, -1.5] # Above but corrected for joint order
 
         for i, id in enumerate(self.j_idx):
-            pybullet.resetJointState(self.robot, id, initial_q[i], 0.0)
+            pybullet.resetJointState(self.robot, id, self.q0[i], 0.0)
 
         # gravity and feet friction
         pybullet.setGravity(0, 0, -9.81)
@@ -82,13 +96,13 @@ class Go2Simulator(Node):
 
     def update(self):
         low_msg = LowState()
-        odometry_msg = Odometry()
-        transform_msg = TransformStamped()
 
         timestamp = self.get_clock().now().to_msg()
 
         # Read sensors
         joint_states = pybullet.getJointStates(self.robot, self.j_idx)
+        received_q = [joint_state[0] for joint_state in joint_states]
+        self.get_logger().info(f"{received_q=}")
         for joint_idx, joint_state in enumerate(joint_states):
             low_msg.motor_state[joint_idx].mode = 1
             low_msg.motor_state[joint_idx].q = joint_state[0]
@@ -102,32 +116,21 @@ class Go2Simulator(Node):
         # Robot state
         self.lowstate_publisher.publish(low_msg)
 
-        # Odometry / state estimation
-        odometry_msg.header.stamp = timestamp
-        odometry_msg.header.frame_id = "odom"
-        odometry_msg.child_frame_id = "base"
-        odometry_msg.pose.pose.position.x, odometry_msg.pose.pose.position.y, odometry_msg.pose.pose.position.z = position
-        odometry_msg.pose.pose.orientation.x, odometry_msg.pose.pose.orientation.y, odometry_msg.pose.pose.orientation.z, odometry_msg.pose.pose.orientation.w = orientation
-        odometry_msg.twist.twist.linear.x, odometry_msg.twist.twist.linear.y, odometry_msg.twist.twist.linear.z = linear_vel
-        odometry_msg.twist.twist.angular.x, odometry_msg.twist.twist.angular.y, odometry_msg.twist.twist.angular.z = angular_vel
-        self.odometry_publisher.publish(odometry_msg)
-
-        # Forwar odometry on tf
-        transform_msg.header.stamp = timestamp
-        transform_msg.header.frame_id = "odom"
-        transform_msg.child_frame_id = "base"
-        transform_msg.transform.translation.x, transform_msg.transform.translation.y, transform_msg.transform.translation.z = position
-        transform_msg.transform.rotation.x, transform_msg.transform.rotation.y, transform_msg.transform.rotation.z, transform_msg.transform.rotation.w  = orientation
-        self.tf_broadcaster.sendTransform(transform_msg)
-
-        if self.last_cmd_msg is None:
-            return
-
-        q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
-        v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
-        tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)])
-        kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
-        kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
+        if False:
+            q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
+            v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)]) * 0 # No velocity control
+            tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)]) * 0 # No torque control
+            kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
+            kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
+        else:
+            q_des = np.zeros(12) + self.q0
+            q_des += self.traj[self.i, 0:12] * 0.25
+            self.i += 1
+            
+            v_des = np.zeros(12)
+            tau_des = np.zeros(12)
+            kp_des = np.ones(12) * 25
+            kd_des = np.ones(12) * 0.5
 
         for _ in range(self.low_level_sub_step):
             # Get sub step state
@@ -136,6 +139,8 @@ class Go2Simulator(Node):
             v = np.array([joint_state[1] for joint_state in joint_states])
 
             tau_cmd = tau_des - np.multiply(q-q_des, kp_des) - np.multiply(v-v_des, kd_des)
+            # Clip torque command
+            tau_cmd = np.clip(tau_cmd, -23.5, 23.5) # Nm, torque limit
 
             # Set actuation
             pybullet.setJointMotorControlArray(
