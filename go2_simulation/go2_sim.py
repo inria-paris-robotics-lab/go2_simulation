@@ -135,8 +135,6 @@ class Go2Simulator(Node):
         new_lin_acc += gravity
         low_msg.imu_state.accelerometer[:] = new_lin_acc
         norm = np.linalg.norm(new_lin_acc)
-        print(f"{new_lin_acc=} {norm=}")
-
 
         # Robot state
         self.lowstate_publisher.publish(low_msg)
@@ -146,8 +144,6 @@ class Go2Simulator(Node):
         tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)]) * 0 # No torque control
         kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
         kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
-
-        print(f"{q_des=}")
 
         for _ in range(self.low_level_sub_step):
             # Get sub step state
