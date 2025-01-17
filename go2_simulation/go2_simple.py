@@ -136,15 +136,15 @@ class Go2Simulator(Node):
         kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
 
         for _ in range(self.low_level_sub_step):
+            # Get sub step state
+            q_current, v_current = self.simulator.get_state()
+            
             tau_cmd = tau_des - np.multiply(q_current[7:]-q_des, kp_des) - np.multiply(v_current[6:]-v_des, kd_des)
 
             # Set actuation and run one step of simulation
             torque_simu = np.zeros(self.rmodel.nv)
             torque_simu[6:] = tau_cmd
             self.simulator.execute(torque_simu)
-
-            # Get sub step state
-            q_current, v_current = self.simulator.get_state()
 
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
