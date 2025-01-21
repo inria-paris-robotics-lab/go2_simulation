@@ -15,7 +15,6 @@ from go2_simulation.simulation_utils import (
     Simulation,
     addSystemCollisionPairs
 )
-
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 
@@ -61,9 +60,10 @@ class Go2Simulator(Node):
 
         # Set simulation properties
         args = SimulationArgs()
+        initial_q = np.array([0, 0, 0.2, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
         setPhysicsProperties(self.geom_model, args.material, args.compliance)
         removeBVHModelsIfAny(self.geom_model)
-        addSystemCollisionPairs(self.rmodel, self.geom_model, self.q0)
+        addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
 
          # Remove all pair of collision which does not concern floor collision
         i = 0
@@ -75,7 +75,7 @@ class Go2Simulator(Node):
                 i = i + 1
         
         # Create the simulator object
-        self.simulator = Simulation(self.rmodel, self.geom_model, visual_model, self.q0, np.zeros(self.rmodel.nv), args) 
+        self.simulator = Simulation(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), args) 
 
 
     def update(self):
@@ -145,6 +145,7 @@ class Go2Simulator(Node):
             torque_simu = np.zeros(self.rmodel.nv)
             torque_simu[6:] = tau_cmd
             self.simulator.execute(torque_simu)
+
 
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
