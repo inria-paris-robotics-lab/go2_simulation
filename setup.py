@@ -22,7 +22,6 @@ setup(
     entry_points={
         'console_scripts': [
             'go2_sim = go2_simulation.go2_sim:main',
-            'go2_simple = go2_simulation.go2_simple:main'
         ],
     },
 )
