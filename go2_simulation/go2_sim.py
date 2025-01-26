@@ -59,9 +59,17 @@ class Go2Simulator(Node):
 
         # Print joint names
         num_joints = pybullet.getNumJoints(self.robot)
+        feet_names = [name + '_foot' for name in ("FL", "FR", "RL", "RR")]
+        self.feet_idx = []
+
         for i in range(num_joints):
             joint_info = pybullet.getJointInfo(self.robot, i)
-            self.get_logger().info(f"go2_simulator::joint_info : {joint_info[1].decode('utf-8')}")
+            joint_name = joint_info[1].decode('utf-8')
+            link_name = joint_info[12].decode('utf-8')
+            self.get_logger().info(f"go2_simulator::joint_info : {joint_name}")
+
+            if link_name in feet_names:
+                self.feet_idx.append((i, link_name))
     
 
         # Load ground plane
@@ -110,8 +118,8 @@ class Go2Simulator(Node):
             low_msg.motor_state[joint_idx].dq = joint_state[1]
 
         # Read IMU
-        position, orientation = pybullet.getBasePositionAndOrientation(self.robot)
-        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot)
+        position, orientation = pybullet.getBasePositionAndOrientation(self.robot) # world frame
+        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot) # world frame
 
         # Convert to body frame
         R = np.array(pybullet.getMatrixFromQuaternion(orientation), dtype=np.float32).reshape(3, 3)
@@ -135,6 +143,12 @@ class Go2Simulator(Node):
         new_lin_acc += gravity
         low_msg.imu_state.accelerometer[:] = new_lin_acc
         norm = np.linalg.norm(new_lin_acc)
+
+        # Update feet contact states
+        for i, (joint_idx, link_name) in enumerate(self.feet_idx):
+            contact_points = pybullet.getClosestPoints(self.robot, self.plane_id, 0.01, joint_idx)
+            if len(contact_points) > 0:
+                low_msg.foot_force[i] = 100
 
         # Robot state
         self.lowstate_publisher.publish(low_msg)
