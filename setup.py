@@ -10,7 +10,8 @@ setup(
     packages=[package_name],
     data_files=[
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', glob('launch/*'))
+        ('share/' + package_name + '/launch', glob('launch/*')),
+        ('share/' + package_name + '/config', glob('config/*'))
     ],
     install_requires=['setuptools', 'pybullet'],
     zip_safe=True,

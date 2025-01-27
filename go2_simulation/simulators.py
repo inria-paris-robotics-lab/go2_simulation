@@ -1,7 +1,6 @@
 import numpy as np
 import pinocchio as pin
 import example_robot_data as erd
-from go2_simulation.simulation_args import SimulationArgs
 from go2_simulation.simulation_utils import (
     addFloor,
     removeBVHModelsIfAny,
@@ -13,6 +12,8 @@ import os
 import pybullet 
 import pybullet_data
 from scipy.spatial.transform import Rotation as R
+from ament_index_python.packages import get_package_share_directory
+import yaml
 
 class SimpleSimulator():
     def __init__(self, timestep):
@@ -39,10 +40,18 @@ class SimpleSimulator():
         addFloor(self.geom_model, visual_model)
 
         # Set simulation properties
-        args = SimulationArgs()
-        args.dt = timestep
+        args = None
+        arg_path = os.path.join(
+            get_package_share_directory('go2_simulation'),
+            'config',
+            'sim_params.yaml'
+        )
+        with open(arg_path, 'r') as file:
+          args = yaml.safe_load(file)
+
+        args["dt"] = timestep
         initial_q = np.array([0, 0, 0.2, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
-        setPhysicsProperties(self.geom_model, args.material, args.compliance)
+        setPhysicsProperties(self.geom_model, args["material"], args["compliance"])
         removeBVHModelsIfAny(self.geom_model)
         addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
 

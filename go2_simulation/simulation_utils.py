@@ -26,45 +26,46 @@ class Simulation:
             col_req.gjk_variant = hppfcl.GJKVariant.DefaultGJK
 
         for patch_req in self.geom_data.contactPatchRequests:
-            patch_req.setPatchTolerance(args.patch_tolerance)
+            patch_req.setPatchTolerance(args["patch_tolerance"])
 
         # Simulation parameters
         self.simulator = simple.SimulatorInstance(model, self.data, geom_model, self.geom_data)
         self.simulator.contact_solver_info = pin.ProximalSettings(
-            args.tol, args.tol_rel, args.mu_prox, args.maxit
+            args["tol"], args["tol_rel"], args["mu_prox"], args["maxit"]
         )
-        self.simulator.warm_start_constraint_forces = args.warm_start
+        self.simulator.warm_start_constraint_forces = args["warm_start"]
         self.simulator.measure_timings = True
         # Contact patch settings
         self.simulator.constraint_problem.setMaxNumberOfContactsPerCollisionPair(
-            args.max_patch_size
+            args["max_patch_size"]
         )
         # Baumgarte settings
-        self.simulator.constraint_problem.Kp = args.Kp
-        self.simulator.constraint_problem.Kd = args.Kd
-        if args.admm_update_rule == "spectral":
+        self.simulator.constraint_problem.Kp = args["Kp"]
+        self.simulator.constraint_problem.Kd = args["Kd"]
+        if args["admm_update_rule"] == "spectral":
             self.simulator.admm_contact_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.SPECTRAL
             )
-        elif args.admm_update_rule == "linear":
+        elif args["admm_update_rule"] == "linear":
             self.simulator.admm_contact_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.LINEAR
             )
         else:
-            print(f"ERROR - no match for admm update rule {args.admm_update_rule}")
+            update_rule = args["admm_update_rule"]
+            print(f"ERROR - no match for admm update rule {update_rule}")
             exit(1)
-        self.dt = args.dt
+        self.dt = args["dt"]
         self.q = q0.copy()
         self.v = v0.copy()
         self.fext = [pin.Force(np.zeros(6)) for _ in range(model.njoints)]
-        fps = min([self.args.max_fps, 1.0 / self.dt])
+        fps = min([self.args["max_fps"], 1.0 / self.dt])
         self.dt_vis = 1.0 / float(fps)
         self.simulator.reset()
 
         pass
 
     def execute(self, tau):
-        if self.args.contact_solver == "ADMM":
+        if self.args["contact_solver"] == "ADMM":
             self.simulator.step(self.q, self.v, tau, self.fext, self.dt)
         else:
             self.simulator.stepPGS(self.q, self.v, tau, self.fext, self.dt)
