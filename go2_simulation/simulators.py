@@ -12,11 +12,9 @@ import os
 import pybullet 
 import pybullet_data
 from scipy.spatial.transform import Rotation as R
-from ament_index_python.packages import get_package_share_directory
-import yaml
 
 class SimpleSimulator():
-    def __init__(self, timestep):
+    def __init__(self, node, timestep):
         ########################## Load robot model and geometry
         robot = erd.load("go2")
         self.rmodel = robot.model
@@ -32,6 +30,26 @@ class SimpleSimulator():
 
         self.geom_model = pin.GeometryModel()
         pin.buildGeomFromUrdfString(self.rmodel, file_content, pin.GeometryType.VISUAL, self.geom_model, package_dir)
+        
+        # Load parameters from node
+        self.params = {
+            'max_fps': node.declare_parameter('max_fps', 30).value,
+            'Kp': node.declare_parameter('Kp', 0.0).value,
+            'Kd': node.declare_parameter('Kd', 0.0).value,
+            'compliance': node.declare_parameter('compliance', 0.0).value,
+            'material': node.declare_parameter('material', 'metal').value,
+            'horizon': node.declare_parameter('horizon', 1000).value,
+            'dt': node.declare_parameter('dt', 1e-3).value,
+            'tol': node.declare_parameter('tol', 1e-6).value,
+            'tol_rel': node.declare_parameter('tol_rel', 1e-6).value,
+            'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
+            'maxit': node.declare_parameter('maxit', 100).value,
+            'warm_start': node.declare_parameter('warm_start', 1).value,
+            'contact_solver': node.declare_parameter('contact_solver', 'ADMM').value,
+            'admm_update_rule': node.declare_parameter('admm_update_rule', 'spectral').value,
+            'max_patch_size': node.declare_parameter('max_patch_size', 4).value,
+            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-3).value,
+        }
 
         self.init_simple(timestep)
 
@@ -40,18 +58,9 @@ class SimpleSimulator():
         addFloor(self.geom_model, visual_model)
 
         # Set simulation properties
-        args = None
-        arg_path = os.path.join(
-            get_package_share_directory('go2_simulation'),
-            'config',
-            'sim_params.yaml'
-        )
-        with open(arg_path, 'r') as file:
-          args = yaml.safe_load(file)
-
-        args["dt"] = timestep
+        self.params["dt"] = timestep
         initial_q = np.array([0, 0, 0.2, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
-        setPhysicsProperties(self.geom_model, args["material"], args["compliance"])
+        setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.geom_model)
         addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
 
@@ -65,7 +74,7 @@ class SimpleSimulator():
                 i = i + 1
         
         # Create the simulator object
-        self.simulator = Simulation(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), args) 
+        self.simulator = Simulation(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), self.params) 
     
     def get_state(self):
         q_current, v_current = self.simulator.get_state()

@@ -12,7 +12,7 @@ class Go2Simulator(Node):
     def __init__(self):
         super().__init__('go2_simulation')
         simulation = self.declare_parameter('simulation', rclpy.Parameter.Type.STRING).value
-
+        
         ########################### State
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
         self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
@@ -32,7 +32,7 @@ class Go2Simulator(Node):
         timestep = self.high_level_period / self.low_level_sub_step
 
         if simulation == "simple":
-            self.simulator = SimpleSimulator(timestep)
+            self.simulator = SimpleSimulator(self, timestep)
         elif simulation == "bullet":
             self.simulator = BulletSimulator(timestep)
         else:
