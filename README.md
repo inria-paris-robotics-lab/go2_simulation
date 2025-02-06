@@ -9,3 +9,4 @@ Dependencies
 
 * (optional) Pybullet
 * (optional) [Simple](https://github.com/Simple-Robotics/Simple)
+* (optional) [go2_description](https://github.com/inria-paris-robotics-lab/go2_description)
