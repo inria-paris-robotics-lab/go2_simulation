@@ -10,7 +10,7 @@ from geometry_msgs.msg import TransformStamped
 class Go2Simulator(Node):
     def __init__(self):
         super().__init__('go2_simulation')
-        simulation = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
+        simulator_name = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
 
         ########################### State
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
@@ -30,10 +30,10 @@ class Go2Simulator(Node):
         self.get_logger().info("go2_simulator::loading simulator")
         timestep = self.high_level_period / self.low_level_sub_step
 
-        if simulation == "simple":
+        if simulator_name == "simple":
             from go2_simulation.simple_wrapper import SimpleWrapper
             self.simulator = SimpleWrapper(self, timestep)
-        elif simulation == "pybullet":
+        elif simulator_name == "pybullet":
             from go2_simulation.bullet_wrapper import BulletWrapper
             self.simulator = BulletWrapper(timestep)
         else:
