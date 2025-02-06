@@ -9,7 +9,7 @@ class BulletWrapper():
     def __init__(self, timestep):
         self.init_pybullet(timestep)
 
-    def init_pybullet(self, urdf_path, timestep):
+    def init_pybullet(self, timestep):
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
         if (cid < 0):
             pybullet.connect(pybullet.GUI, options="--opengl2")

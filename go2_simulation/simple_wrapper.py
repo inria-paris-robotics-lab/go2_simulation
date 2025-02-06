@@ -1,5 +1,6 @@
 import numpy as np
 from go2_description import loadGo2
+from go2_description import GO2_DESCRIPTION_URDF_PATH
 import hppfcl
 import pinocchio as pin
 import simple
