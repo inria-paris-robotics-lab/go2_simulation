@@ -7,5 +7,5 @@ Dependencies
 
 * The **unitree_ros** stack (please find instructions, [here](https://github.com/unitreerobotics/unitree_ros2/tree/master)).
 
-* (optionnal) Pybullet
-* (optionnal) [Simple](https://github.com/Simple-Robotics/Simple)
+* (optional) Pybullet
+* (optional) [Simple](https://github.com/Simple-Robotics/Simple)
