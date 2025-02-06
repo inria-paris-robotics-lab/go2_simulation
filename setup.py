@@ -22,7 +22,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'go2_sim = go2_simulation.go2_sim:main',
+            'simulator_node = go2_simulation.simulator_node:main',
         ],
     },
 )

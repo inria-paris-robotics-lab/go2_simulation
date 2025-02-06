@@ -6,13 +6,12 @@ import numpy as np
 
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
-from go2_simulation.simulators import SimpleSimulator, BulletSimulator
 
 class Go2Simulator(Node):
     def __init__(self):
         super().__init__('go2_simulation')
-        simulation = self.declare_parameter('simulation', rclpy.Parameter.Type.STRING).value
-        
+        simulator_name = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
+
         ########################### State
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
         self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
@@ -26,17 +25,19 @@ class Go2Simulator(Node):
         ########################## Cmd
         self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
         self.last_cmd_msg = LowCmd()
-        
+
         ########################## Simulator
         self.get_logger().info("go2_simulator::loading simulator")
         timestep = self.high_level_period / self.low_level_sub_step
 
-        if simulation == "simple":
-            self.simulator = SimpleSimulator(self, timestep)
-        elif simulation == "bullet":
-            self.simulator = BulletSimulator(timestep)
+        if simulator_name == "simple":
+            from go2_simulation.simple_wrapper import SimpleWrapper
+            self.simulator = SimpleWrapper(self, timestep)
+        elif simulator_name == "pybullet":
+            from go2_simulation.bullet_wrapper import BulletWrapper
+            self.simulator = BulletWrapper(timestep)
         else:
-            self.get_logger().info("Simulation tool not recognized")
+            self.get_logger().error("Simulation tool not recognized")
 
 
     def update(self):
