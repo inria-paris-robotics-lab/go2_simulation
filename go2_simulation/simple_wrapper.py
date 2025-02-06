@@ -1,10 +1,10 @@
 import numpy as np
-
+import example_robot_data as erd
 import hppfcl
 import pinocchio as pin
 import simple
 
-class Simulation:
+class SimpleSimulator:
     def __init__(self, model, geom_model, visual_model, q0, v0, args):
         self.model = model
         self.geom_model = geom_model
@@ -77,10 +77,10 @@ class Simulation:
         #time_until_next_step = self.dt_vis - (time.time() - step_start)
         #if time_until_next_step > 0:
         #    time.sleep(time_until_next_step)
-    
+
     def get_state(self):
         return self.q, self.v
-    
+
     def view_state(self, q):
         self.vizer.display(q)
 
@@ -132,7 +132,7 @@ def addFloor(geom_model: pin.GeometryModel, visual_model: pin.GeometryModel):
         "floor", 0, 0, pin.SE3.Identity(), floor_visual_shape
     )
     visual_model.addGeometryObject(floor_visual_object)
-        
+
 def addSystemCollisionPairs(model, geom_model, qref):
     """
     Add the right collision pairs of a model, given qref.
@@ -170,3 +170,81 @@ def addSystemCollisionPairs(model, geom_model, qref):
                                 col_pair = pin.CollisionPair(i, j)
                                 geom_model.addCollisionPair(col_pair)
     print("Num col pairs = ", num_col_pairs)
+
+class SimpleWrapper():
+    def __init__(self, node, timestep):
+        ########################## Load robot model and geometry
+        robot = erd.load("go2")
+        self.rmodel = robot.model
+        self.q0 = self.rmodel.referenceConfigurations["standing"]
+        self.njoints = self.rmodel.nv - 6
+
+        URDF_SUBPATH = "/go2_description/urdf/go2.urdf"
+        package_dir = erd.getModelPath(URDF_SUBPATH)
+        file_path = package_dir + URDF_SUBPATH
+
+        with open(file_path, 'r') as file:
+            file_content = file.read()
+
+        self.geom_model = pin.GeometryModel()
+        pin.buildGeomFromUrdfString(self.rmodel, file_content, pin.GeometryType.VISUAL, self.geom_model, package_dir)
+
+        # Load parameters from node
+        self.params = {
+            'max_fps': node.declare_parameter('max_fps', 30).value,
+            'Kp': node.declare_parameter('Kp', 0.0).value,
+            'Kd': node.declare_parameter('Kd', 0.0).value,
+            'compliance': node.declare_parameter('compliance', 0.0).value,
+            'material': node.declare_parameter('material', 'metal').value,
+            'horizon': node.declare_parameter('horizon', 1000).value,
+            'dt': node.declare_parameter('dt', 1e-3).value,
+            'tol': node.declare_parameter('tol', 1e-6).value,
+            'tol_rel': node.declare_parameter('tol_rel', 1e-6).value,
+            'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
+            'maxit': node.declare_parameter('maxit', 100).value,
+            'warm_start': node.declare_parameter('warm_start', 1).value,
+            'contact_solver': node.declare_parameter('contact_solver', 'ADMM').value,
+            'admm_update_rule': node.declare_parameter('admm_update_rule', 'spectral').value,
+            'max_patch_size': node.declare_parameter('max_patch_size', 4).value,
+            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-3).value,
+        }
+
+        self.init_simple(timestep)
+
+    def init_simple(self, timestep):
+        visual_model = self.geom_model.copy()
+        addFloor(self.geom_model, visual_model)
+
+        # Set simulation properties
+        self.params["dt"] = timestep
+        initial_q = np.array([0, 0, 0.2, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
+        setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
+        removeBVHModelsIfAny(self.geom_model)
+        addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
+
+         # Remove all pair of collision which does not concern floor collision
+        i = 0
+        while i < len(self.geom_model.collisionPairs):
+            cp = self.geom_model.collisionPairs[i]
+            if self.geom_model.geometryObjects[cp.first].name != 'floor' and self.geom_model.geometryObjects[cp.second].name != 'floor':
+                self.geom_model.removeCollisionPair(cp)
+            else:
+                i = i + 1
+
+        # Create the simulator object
+        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), self.params) 
+
+    def get_state(self):
+        q_current, v_current = self.simulator.get_state()
+
+        return q_current, v_current
+
+    def execute_step(self, tau_des, q_des, v_des, kp_des, kd_des):
+        # Get sub step state
+        q_current, v_current = self.simulator.get_state()
+        tau_cmd = tau_des - np.multiply(q_current[7:]-q_des, kp_des) - np.multiply(v_current[6:]-v_des, kd_des)
+
+        # Set actuation and run one step of simulation
+        torque_simu = np.zeros(self.rmodel.nv)
+        torque_simu[6:] = tau_cmd
+        self.simulator.execute(torque_simu)

@@ -38,8 +38,8 @@ def generate_launch_description():
     # Node configuration
     go2_simulation_node = Node(
         package='go2_simulation',  # Replace with the actual package name
-        executable='go2_sim',  # Replace with the actual node executable name
-        name='go2_sim',
+        executable='simulator_node',  # Replace with the actual node executable name
+        name='simulator_node',
         parameters=[
             {
                 'imu_topic_name': LaunchConfiguration('imu_topic_name'),
