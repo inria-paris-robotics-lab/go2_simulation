@@ -10,7 +10,7 @@ from geometry_msgs.msg import TransformStamped
 class Go2Simulator(Node):
     def __init__(self):
         super().__init__('go2_simulation')
-        simulation = self.declare_parameter('simulation', rclpy.Parameter.Type.STRING).value
+        simulation = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
 
         ########################### State
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
