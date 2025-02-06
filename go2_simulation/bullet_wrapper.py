@@ -1,5 +1,5 @@
 import numpy as np
-import example_robot_data as erd
+from go2_description import GO2_DESCRIPTION_URDF_PATH
 import os
 import pybullet
 import pybullet_data
@@ -7,13 +7,9 @@ from scipy.spatial.transform import Rotation as R
 
 class BulletWrapper():
     def __init__(self, timestep):
-        ########################## Load robot model and geometry
-        robot_subpath = "go2_description/urdf/go2.urdf"
-        self.robot_path = os.path.join(erd.getModelPath(robot_subpath), robot_subpath)
-        self.robot = 0
         self.init_pybullet(timestep)
 
-    def init_pybullet(self, timestep):
+    def init_pybullet(self, urdf_path, timestep):
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
         if (cid < 0):
             pybullet.connect(pybullet.GUI, options="--opengl2")
@@ -21,7 +17,7 @@ class BulletWrapper():
             pybullet.connect(pybullet.GUI)
 
         # Load robot
-        self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.3])
+        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 0.3])
 
         # Load ground plane
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
