@@ -1,6 +1,6 @@
 import numpy as np
 from go2_description import loadGo2
-from go2_description import GO2_DESCRIPTION_URDF_PATH
+from go2_description import GO2_DESCRIPTION_URDF_PATH, GO2_DESCRIPTION_PACKAGE_DIR
 import hppfcl
 import pinocchio as pin
 import simple
@@ -44,11 +44,11 @@ class SimpleSimulator:
         self.simulator.constraint_problem.Kp = args["Kp"]
         self.simulator.constraint_problem.Kd = args["Kd"]
         if args["admm_update_rule"] == "spectral":
-            self.simulator.admm_contact_solver_settings.admm_update_rule = (
+            self.simulator.admm_constraint_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.SPECTRAL
             )
         elif args["admm_update_rule"] == "linear":
-            self.simulator.admm_contact_solver_settings.admm_update_rule = (
+            self.simulator.admm_constraint_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.LINEAR
             )
         else:
@@ -184,7 +184,7 @@ class SimpleWrapper():
             file_content = file.read()
 
         self.geom_model = pin.GeometryModel()
-        pin.buildGeomFromUrdfString(self.rmodel, file_content, pin.GeometryType.VISUAL, self.geom_model, package_dir)
+        pin.buildGeomFromUrdfString(self.rmodel, file_content, pin.GeometryType.VISUAL, self.geom_model, GO2_DESCRIPTION_PACKAGE_DIR)
 
         # Load parameters from node
         self.params = {
