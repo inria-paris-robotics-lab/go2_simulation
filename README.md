@@ -1,16 +1,12 @@
 # Unitree Go2 ros2 simulation 
 
-This ros2 package allows you to simualate the go2 robot in pybullet. It replicates some of the real robot topics.
+This ros2 package allows you to simulate the unitree go2 robot and mimic its ROS2 API. (by replicating the topics most used). The physics is simulated using pybullet or [Simple](https://github.com/Simple-Robotics/Simple).
 
-Installation
+Dependencies
 ------------
 
-For this to work you will need to have installed the unitree_ros stack (please find instructions, [here](https://github.com/unitreerobotics/unitree_ros2/tree/master)). You will also need pybullet, it is recommended to install it in a conda environment:
+* The **unitree_ros** stack (please find instructions, [here](https://github.com/unitreerobotics/unitree_ros2/tree/master)).
 
-```
-conda create -n pybullet_ros python=3.10
-conda activate pybullet_ros
-conda install pybullet
-```
-
-After this you can do `colcon build` at the root of your ros workspace, and you should be able to launch this package.
+* (optional) Pybullet
+* (optional) [Simple](https://github.com/Simple-Robotics/Simple)
+* (optional) [go2_description](https://github.com/inria-paris-robotics-lab/go2_description)

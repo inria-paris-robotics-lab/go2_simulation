@@ -1,5 +1,6 @@
 import numpy as np
-import example_robot_data as erd
+from go2_description import loadGo2
+from go2_description import GO2_DESCRIPTION_URDF_PATH
 import hppfcl
 import pinocchio as pin
 import simple
@@ -174,16 +175,12 @@ def addSystemCollisionPairs(model, geom_model, qref):
 class SimpleWrapper():
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
-        robot = erd.load("go2")
+        robot = loadGo2()
         self.rmodel = robot.model
         self.q0 = self.rmodel.referenceConfigurations["standing"]
         self.njoints = self.rmodel.nv - 6
 
-        URDF_SUBPATH = "/go2_description/urdf/go2.urdf"
-        package_dir = erd.getModelPath(URDF_SUBPATH)
-        file_path = package_dir + URDF_SUBPATH
-
-        with open(file_path, 'r') as file:
+        with open(GO2_DESCRIPTION_URDF_PATH, 'r') as file:
             file_content = file.read()
 
         self.geom_model = pin.GeometryModel()
