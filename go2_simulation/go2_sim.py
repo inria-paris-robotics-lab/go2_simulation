@@ -59,8 +59,8 @@ class Go2Simulator(Node):
 
         # Print joint names
         num_joints = pybullet.getNumJoints(self.robot)
-        feet_names = [name + '_foot' for name in ("FL", "FR", "RL", "RR")]
-        self.feet_idx = []
+        feet_names = [name + '_foot' for name in ("FR", "FL", "RR", "RL")]
+        self.feet_idx = [-1] * len(feet_names)
 
         for i in range(num_joints):
             joint_info = pybullet.getJointInfo(self.robot, i)
@@ -69,8 +69,10 @@ class Go2Simulator(Node):
             self.get_logger().info(f"go2_simulator::joint_info : {joint_name}")
 
             if link_name in feet_names:
-                self.feet_idx.append((i, link_name))
-    
+                foot_id = feet_names.index(link_name)
+                self.feet_idx[foot_id] = (i, link_name)
+
+        self.get_logger().info(f"go2_simulator::feet_idx : {self.feet_idx}")
 
         # Load ground plane
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
