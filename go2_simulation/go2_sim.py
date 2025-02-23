@@ -128,7 +128,9 @@ class Go2Simulator(Node):
         linear_vel = np.dot(R.T, linear_vel).astype(np.float32)
         angular_vel = np.dot(R.T, angular_vel).astype(np.float32)
 
-        low_msg.imu_state.quaternion = orientation
+        # Bullet uses [x,y,z,w] quaternions while /lowstate expects [w,x,y,z]
+        low_msg.imu_state.quaternion[0] = orientation[-1]
+        low_msg.imu_state.quaternion[1:] = orientation[0:3]
         low_msg.imu_state.gyroscope = angular_vel
 
         new_lin_acc = np.zeros(3, dtype=np.float32)
