@@ -57,6 +57,9 @@ class Go2Simulator(Node):
         self.robot = pybullet.loadURDF(self.robot_path, [0, 0, 0.4])
         self.get_logger().info(f"go2_simulator::loading urdf : {self.robot}")
 
+        # Load track
+        self.ramp_id = pybullet.loadURDF("/home/ugokbaka/Workspace/unitree_ros2/cyclonedds_ws/src/go2_simulation/data/assets/track.urdf", [1, 0.2, -0.3])
+
         # Print joint names
         num_joints = pybullet.getNumJoints(self.robot)
         feet_names = [name + '_foot' for name in ("FR", "FL", "RR", "RL")]
@@ -150,7 +153,9 @@ class Go2Simulator(Node):
 
         # Update feet contact states
         for i, (joint_idx, link_name) in enumerate(self.feet_idx):
-            contact_points = pybullet.getClosestPoints(self.robot, self.plane_id, 0.01, joint_idx)
+            # Check ground plane contacts
+            contact_points = pybullet.getClosestPoints(self.robot, self.plane_id, 0.005, joint_idx)
+            contact_points += pybullet.getClosestPoints(self.robot, self.ramp_id, 0.005, joint_idx)
             if len(contact_points) > 0:
                 low_msg.foot_force[i] = 100
 
