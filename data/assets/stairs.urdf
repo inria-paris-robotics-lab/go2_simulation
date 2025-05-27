@@ -1,0 +1,218 @@
+<?xml version="1.0" ?>
+<robot name="stairs">
+  <link name="world"/>
+
+  <link name="stepOne">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry name="smoothStep">
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige"></material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry name="smoothStep">
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="stepTwo">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige">
+        <color rgba="1 0.9 0.8 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="stepThree">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige"></material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="stepFour">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige"></material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+    <link name="stepFive">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige"></material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="stepSix">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige"></material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="stepSeven">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+       <material name="beige"></material>
+    </visual>
+    <collision>
+      <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="assets/smooth_step.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Joints -->
+  <joint name="world_to_stepOne" type="fixed">
+    <parent link="world"/>
+    <child link="stepOne"/>
+    <origin rpy="0 0 0" xyz="6 0 0"/>
+  </joint>
+
+  <joint name="stepOne_to_stepTwo" type="fixed">
+    <parent link="stepOne"/>
+    <child link="stepTwo"/>
+    <origin rpy="0 0 0" xyz="-1 0 0.25"/>
+  </joint>
+  
+  <joint name="stepTwo_to_stepThree" type="fixed">
+    <parent link="stepTwo"/>
+    <child link="stepThree"/>
+    <origin rpy="0 0 0" xyz="-1 0 0.25"/>
+  </joint>
+
+  <joint name="stepThree_to_stepFour" type="fixed">
+    <parent link="stepThree"/>
+    <child link="stepFour"/>
+    <origin rpy="0 0 0" xyz="-1 0 0.25"/>
+  </joint>
+
+  <joint name="stepFour_to_stepFive" type="fixed">
+    <parent link="stepFour"/>
+    <child link="stepFive"/>
+    <origin rpy="0 0 0" xyz="-1 0 0.25"/>
+  </joint>
+
+  <joint name="stepFive_to_stepSix" type="fixed">
+    <parent link="stepFive"/>
+    <child link="stepSix"/>
+    <origin rpy="0 0 0" xyz="-1 0 0.25"/>
+  </joint>
+
+  <joint name="stepSix_to_stepSeven" type="fixed">
+    <parent link="stepSix"/>
+    <child link="stepSeven"/>
+    <origin rpy="0 0 0" xyz="-1 0 0.25"/>
+  </joint>
+
+</robot>
