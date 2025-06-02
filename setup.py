@@ -21,7 +21,7 @@ setup(
     license='TODO: License declaration',
     entry_points={
         'console_scripts': [
-            'simulator_node = go2_simulation.simulator_node:main',
+            'simulation_node = go2_simulation.simulation_node:main',
         ],
     },
 )

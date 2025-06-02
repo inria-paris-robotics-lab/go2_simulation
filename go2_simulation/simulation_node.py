@@ -6,8 +6,9 @@ import numpy as np
 
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
+from go2_simulation.abstract_wrapper import AbstractSimulatorWrapper
 
-class Go2Simulator(Node):
+class Go2Simulation(Node):
     def __init__(self):
         super().__init__('go2_simulation')
         simulator_name = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
@@ -30,6 +31,7 @@ class Go2Simulator(Node):
         self.get_logger().info("go2_simulator::loading simulator")
         timestep = self.high_level_period / self.low_level_sub_step
 
+        self.simulator: AbstractSimulatorWrapper = None
         if simulator_name == "simple":
             from go2_simulation.simple_wrapper import SimpleWrapper
             self.simulator = SimpleWrapper(self, timestep)
@@ -41,24 +43,37 @@ class Go2Simulator(Node):
 
 
     def update(self):
+        ## Control robot
+        q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
+        v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
+        tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)])
+        kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
+        kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
+        for _ in range(self.low_level_sub_step):
+            # Iterate to simulate motor internal controller
+            tau_cmd = tau_des - np.multiply(q_current[7:]-q_des, kp_des) - np.multiply(v_current[6:]-v_des, kd_des)
+            q_current, v_current, a_current, f_current = self.simulator.execute_step(tau_cmd)
+
+        ## Send proprioceptive measures (LowState)
         low_msg = LowState()
         odometry_msg = Odometry()
         transform_msg = TransformStamped()
 
         timestamp = self.get_clock().now().to_msg()
 
-        # Read sensors
-        q_current, v_current = self.simulator.get_state()
-        for joint_idx in range(self.simulator.njoints):
+        # Format motor readings
+        for joint_idx in range(12):
             low_msg.motor_state[joint_idx].mode = 1
             low_msg.motor_state[joint_idx].q = q_current[7 + joint_idx]
             low_msg.motor_state[joint_idx].dq = v_current[6 + joint_idx]
-        # Read IMU
+
+        # Format IMU
         low_msg.imu_state.quaternion = q_current[3:7].tolist()
 
-        # Robot state
+        # Publish essage
         self.lowstate_publisher.publish(low_msg)
 
+        ## Send robot pose
         # Odometry / state estimation
         odometry_msg.header.stamp = timestamp
         odometry_msg.header.frame_id = "odom"
@@ -91,22 +106,13 @@ class Go2Simulator(Node):
         transform_msg.transform.rotation.w = q_current[6]
         self.tf_broadcaster.sendTransform(transform_msg)
 
-        q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
-        v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
-        tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)])
-        kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
-        kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
-
-        for _ in range(self.low_level_sub_step):
-            self.simulator.execute_step(tau_des, q_des, v_des, kp_des, kd_des)
-
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
 
 def main(args=None):
     rclpy.init(args=args)
     try:
-        go2_simulation = Go2Simulator()
+        go2_simulation = Go2Simulation()
         rclpy.spin(go2_simulation)
     except rclpy.exceptions.ROSInterruptException:
         pass

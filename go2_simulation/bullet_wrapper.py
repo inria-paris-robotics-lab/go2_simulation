@@ -1,11 +1,11 @@
 import numpy as np
 from go2_description import GO2_DESCRIPTION_URDF_PATH
-import os
 import pybullet
 import pybullet_data
 from scipy.spatial.transform import Rotation as R
+from go2_simulation.abstract_wrapper import AbstractSimulatorWrapper
 
-class BulletWrapper():
+class BulletWrapper(AbstractSimulatorWrapper):
     def __init__(self, timestep):
         self.init_pybullet(timestep)
 
@@ -28,7 +28,6 @@ class BulletWrapper():
         pybullet.setTimeStep(timestep)
 
         self.joint_order = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
-        self.njoints = len(self.joint_order)
 
         self.j_idx = []
         for j in self.joint_order:
@@ -60,29 +59,7 @@ class BulletWrapper():
                 return i
         return None  # Joint name not found
 
-    def get_state(self):
-        joint_states = pybullet.getJointStates(self.robot, self.j_idx)
-        joint_position = np.array([joint_state[0] for joint_state in joint_states])
-        joint_velocity = np.array([joint_state[1] for joint_state in joint_states])
-        linear_pose, angular_pose = pybullet.getBasePositionAndOrientation(self.robot)
-        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot)
-
-        rotation = R.from_quat(angular_pose)
-        linear_pose -= rotation.as_matrix() @ self.localInertiaPos
-
-        q_current = np.concatenate((np.array(linear_pose), np .array(angular_pose), joint_position))
-        v_current = np.concatenate((np.array(linear_vel), np.array(angular_vel), joint_velocity))
-
-        return q_current, v_current
-
-    def execute_step(self, tau_des, q_des, v_des, kp_des, kd_des):
-        # Get sub step state
-        joint_states = pybullet.getJointStates(self.robot, self.j_idx)
-        q = np.array([joint_state[0] for joint_state in joint_states])
-        v = np.array([joint_state[1] for joint_state in joint_states])
-
-        tau_cmd = tau_des - np.multiply(q-q_des, kp_des) - np.multiply(v-v_des, kd_des)
-
+    def step(self, tau_cmd):
         # Set actuation
         pybullet.setJointMotorControlArray(
             bodyIndex=self.robot,
@@ -94,3 +71,19 @@ class BulletWrapper():
         # Advance simulation by one step
         pybullet.stepSimulation()
 
+        # Get new state
+        joint_states = pybullet.getJointStates(self.robot, self.j_idx)
+        joint_position = np.array([joint_state[0] for joint_state in joint_states])
+        joint_velocity = np.array([joint_state[1] for joint_state in joint_states])
+        linear_pose, angular_pose = pybullet.getBasePositionAndOrientation(self.robot)
+        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot)
+
+        rotation = R.from_quat(angular_pose)
+        linear_pose -= rotation.as_matrix() @ self.localInertiaPos
+
+        q_current = np.concatenate((np.array(linear_pose), np .array(angular_pose), joint_position))
+        v_current = np.concatenate((np.array(linear_vel), np.array(angular_vel), joint_velocity))
+        a_current = np.zeros(6 + 12)
+        f_current = np.zeros(4)
+
+        return q_current, v_current, a_current, f_current
