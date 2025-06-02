@@ -7,9 +7,9 @@ from unitree_go.msg import LowState, LowCmd
 import numpy as np
 from example_robot_data import getModelPath
 import os
+from ament_index_python.packages import get_package_share_directory
 
 from tf2_ros import TransformBroadcaster
-from geometry_msgs.msg import TransformStamped
 
 class Go2Simulator(Node):
     def __init__(self):
@@ -57,7 +57,8 @@ class Go2Simulator(Node):
         self.get_logger().info(f"go2_simulator::loading urdf : {self.robot}")
 
         # Load track
-        self.ramp_id = pybullet.loadURDF("/home/ugokbaka/Workspace/unitree_ros2/cyclonedds_ws/src/go2_simulation/data/assets/track.urdf", [1, 0.2, -0.3])
+        print(os.path.join(get_package_share_directory("go2_simulation"), "data/assets/obstacles.urdf"))
+        self.ramp_id = pybullet.loadURDF( os.path.join(get_package_share_directory("go2_simulation"), "data/assets/obstacles.urdf"))
 
         # Print joint names
         num_joints = pybullet.getNumJoints(self.robot)

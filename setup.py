@@ -1,5 +1,4 @@
 from setuptools import setup
-import os
 from glob import glob
 
 package_name = 'go2_simulation'
@@ -11,7 +10,8 @@ setup(
     data_files=[
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*')),
-        ('share/' + package_name + '/config', glob('config/*'))
+        ('share/' + package_name + '/config', glob('config/*')),
+        ('share/' + package_name + '/data/assets', glob('data/assets/*')),
     ],
     install_requires=['setuptools', 'pybullet'],
     zip_safe=True,
