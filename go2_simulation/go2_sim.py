@@ -14,7 +14,7 @@ from geometry_msgs.msg import TransformStamped
 class Go2Simulator(Node):
     def __init__(self):
         super().__init__('go2_simulation')
-        
+
         # self.q0 = [0.1, -0.1, 0.1, -0.1, 0.8, 0.8, 1.0, 1.0, -1.5, -1.5, -1.5, -1.5]
         self.q0 = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79] # Bullet order
 
@@ -42,7 +42,6 @@ class Go2Simulator(Node):
         self.timer = self.create_timer(self.high_level_period, self.update)
         self.last_lin_vel = np.zeros(3, dtype=np.float32)
         self.last_lin_acc = np.zeros(3, dtype=np.float32)
-
 
     def init_pybullet(self):
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
