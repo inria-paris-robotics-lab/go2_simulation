@@ -19,7 +19,6 @@ setup(
     maintainer_email='earlaud@inria.fr',
     description='Basic simulator wrapper to mimic real Go2 ROS2 control API.',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'simulator_node = go2_simulation.simulator_node:main',
