@@ -12,7 +12,7 @@ class BulletWrapper(AbstractSimulatorWrapper):
     def init_pybullet(self, timestep):
         cid = pybullet.connect(pybullet.SHARED_MEMORY)
         if (cid < 0):
-            pybullet.connect(pybullet.GUI, options="--opengl2")
+            pybullet.connect(pybullet.GUI, options="--opengl3")
         else:
             pybullet.connect(pybullet.GUI)
 
