@@ -4,14 +4,13 @@ from go2_description import GO2_DESCRIPTION_URDF_PATH, GO2_DESCRIPTION_PACKAGE_D
 import hppfcl
 import pinocchio as pin
 import simple
+from go2_simulation.abstract_wrapper import AbstractSimulatorWrapper
 
 class SimpleSimulator:
-    def __init__(self, model, geom_model, visual_model, q0, v0, args):
+    def __init__(self, model, geom_model, visual_model, q0, args):
         self.model = model
         self.geom_model = geom_model
         self.visual_model = visual_model
-        self.q0 = q0
-        self.v0 = v0
         self.args = args
 
         self.data = self.model.createData()
@@ -56,8 +55,13 @@ class SimpleSimulator:
             print(f"ERROR - no match for admm update rule {update_rule}")
             exit(1)
         self.dt = args["dt"]
+
+        # Initialize robot state
         self.q = q0.copy()
-        self.v = v0.copy()
+        self.v = np.zeros(self.model.nv)
+        self.a = np.zeros(self.model.nv)
+        self.f_feet = np.zeros(4)
+
         self.fext = [pin.Force(np.zeros(6)) for _ in range(model.njoints)]
         fps = min([self.args["max_fps"], 1.0 / self.dt])
         self.dt_vis = 1.0 / float(fps)
@@ -73,14 +77,14 @@ class SimpleSimulator:
         #print(self.simulator.getStepCPUTimes().user)
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
+        self.a = self.simulator.anew.copy()
 
         #print("elapsed simu time " + str(step_end - step_start))
         #time_until_next_step = self.dt_vis - (time.time() - step_start)
         #if time_until_next_step > 0:
         #    time.sleep(time_until_next_step)
 
-    def get_state(self):
-        return self.q, self.v
+        return self.q, self.v, self.a, self.f_feet
 
     def view_state(self, q):
         self.vizer.display(q)
@@ -172,13 +176,11 @@ def addSystemCollisionPairs(model, geom_model, qref):
                                 geom_model.addCollisionPair(col_pair)
     print("Num col pairs = ", num_col_pairs)
 
-class SimpleWrapper():
+class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
         robot = loadGo2()
         self.rmodel = robot.model
-        self.q0 = self.rmodel.referenceConfigurations["standing"]
-        self.njoints = self.rmodel.nv - 6
 
         with open(GO2_DESCRIPTION_URDF_PATH, 'r') as file:
             file_content = file.read()
@@ -229,19 +231,12 @@ class SimpleWrapper():
                 i = i + 1
 
         # Create the simulator object
-        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), self.params) 
+        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), self.params)
 
-    def get_state(self):
-        q_current, v_current = self.simulator.get_state()
-
-        return q_current, v_current
-
-    def execute_step(self, tau_des, q_des, v_des, kp_des, kd_des):
-        # Get sub step state
-        q_current, v_current = self.simulator.get_state()
-        tau_cmd = tau_des - np.multiply(q_current[7:]-q_des, kp_des) - np.multiply(v_current[6:]-v_des, kd_des)
-
-        # Set actuation and run one step of simulation
+    def step(self, tau_cmd):
+        # Execute step and get new state
         torque_simu = np.zeros(self.rmodel.nv)
         torque_simu[6:] = tau_cmd
-        self.simulator.execute(torque_simu)
+        q_current, v_current, a_current, f_current = self.simulator.execute(torque_simu)
+
+        return q_current, v_current, a_current, f_current

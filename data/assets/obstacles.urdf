@@ -1,0 +1,32 @@
+<?xml version="1.0" ?>
+
+<robot name="obstacles">
+  <link name="world"/>
+
+  <link name="ramp">
+    <contact>
+        <lateral_friction value="1.6"/>
+    </contact>
+    <visual>
+      <geometry name="ramp">
+        <mesh filename="assets/ramp.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+        <material name="powder">
+          <color rgba="1 0.7 0.7 1"/>orange
+        </material>
+    </visual>
+    <collision>
+      <geometry name="ramp">
+        <mesh filename="assets/ramp_hull.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Joints -->
+  <joint name="track_to_ramp" type="fixed">
+    <parent link="world"/>
+    <child link="ramp"/>
+    <origin rpy="0 0 0" xyz="-2. 0 0"/>
+  </joint>
+
+</robot>
