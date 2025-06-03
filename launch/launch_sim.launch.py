@@ -16,6 +16,7 @@ def generate_launch_description():
         package='go2_simulation',  # Replace with the actual package name
         executable='simulation_node',  # Replace with the actual node executable name
         name='simulation_node',
+        output='screen',
         parameters=[
             {
                 'simulator': LaunchConfiguration('simulator'),
