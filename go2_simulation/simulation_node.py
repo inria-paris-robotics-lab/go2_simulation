@@ -3,6 +3,7 @@ from rclpy.node import Node
 from unitree_go.msg import LowState, LowCmd
 from nav_msgs.msg import Odometry
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
@@ -75,9 +76,26 @@ class Go2Simulation(Node):
             low_msg.motor_state[joint_idx].dq = self.v_current[6 + joint_idx]
 
         # Format IMU
-        low_msg.imu_state.quaternion = self.q_current[3:7].tolist()
+        quat_xyzw = self.q_current[3:7].tolist()
+        w_angular_vel = self.v_current[3:6]
+        w_linear_acc = self.a_current[0:3]
 
-        # Publish essage
+        # Rearrange quaternion
+        quat_wxyz = quat_xyzw[-1:] + quat_xyzw[:-1]
+        low_msg.imu_state.quaternion = quat_wxyz
+
+        # Convert from world to local frame
+        rot_mat = R.from_quat(quat_xyzw).as_matrix()
+        l_angular_vel = rot_mat.T @ w_angular_vel
+        l_linear_acc = rot_mat.T @ w_linear_acc
+
+        gravity = rot_mat.T @ np.array([0, 0, -9.81])
+        imu_acc = l_linear_acc + gravity
+
+        low_msg.imu_state.gyroscope = l_angular_vel.astype(np.float32)
+        low_msg.imu_state.accelerometer = imu_acc.astype(np.float32)
+
+        # Publish message
         self.lowstate_publisher.publish(low_msg)
 
         ## Send robot pose
