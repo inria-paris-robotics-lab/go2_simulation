@@ -51,6 +51,10 @@ class BulletWrapper(AbstractSimulatorWrapper):
             forces=[0. for i in range(12)],
         )
 
+        # Finite differences to compute acceleration
+        self.dt = timestep
+        self.v_last = None
+
     def get_joint_id(self, joint_name):
         num_joints = pybullet.getNumJoints(self.robot)
         for i in range(num_joints):
@@ -83,7 +87,9 @@ class BulletWrapper(AbstractSimulatorWrapper):
 
         q_current = np.concatenate((np.array(linear_pose), np .array(angular_pose), joint_position))
         v_current = np.concatenate((np.array(linear_vel), np.array(angular_vel), joint_velocity))
-        a_current = np.zeros(6 + 12)
+        a_current = ((v_current - self.v_last) / self.dt) if self.v_last is not None else np.zeros(6 + 12)
         f_current = np.zeros(4)
+
+        self.v_last = v_current
 
         return q_current, v_current, a_current, f_current
