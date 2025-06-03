@@ -1,10 +1,10 @@
-from typing import Tuple, List, Float
+from typing import Tuple, List
 
-type Configuration = List[Float]
-type Velocities = List[Float]
-type Accelerations = List[Float]
-type Torques = List[Float]
-type FeetForces = List[Float]
+Configuration = List[float]
+Velocities = List[float]
+Accelerations = List[float]
+Torques = List[float]
+FeetForces = List[float]
 
 class AbstractSimulatorWrapper:
     def step(tau: Torques) -> Tuple[Configuration, Velocities, Accelerations, FeetForces]:
