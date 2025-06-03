@@ -75,6 +75,9 @@ class Go2Simulation(Node):
             low_msg.motor_state[joint_idx].q = self.q_current[7 + joint_idx]
             low_msg.motor_state[joint_idx].dq = self.v_current[6 + joint_idx]
 
+        # Contact sensors reading
+        low_msg.foot_force = self.f_current.astype(np.int32).tolist()
+
         # Format IMU
         quat_xyzw = self.q_current[3:7].tolist()
         w_angular_vel = self.v_current[3:6]
@@ -89,7 +92,7 @@ class Go2Simulation(Node):
         l_angular_vel = rot_mat.T @ w_angular_vel
         l_linear_acc = rot_mat.T @ w_linear_acc
 
-        gravity = rot_mat.T @ np.array([0, 0, -9.81])
+        gravity = rot_mat @ np.array([0, 0, 9.81]) # This seems wrong. Proper computation should be done between base and imu frame
         imu_acc = l_linear_acc + gravity
 
         low_msg.imu_state.gyroscope = l_angular_vel.astype(np.float32)
