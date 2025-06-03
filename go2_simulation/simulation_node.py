@@ -13,7 +13,7 @@ class Go2Simulation(Node):
         super().__init__('go2_simulation')
         simulator_name = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
 
-        ########################### State
+        ########################### State publisher
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
         self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -23,7 +23,7 @@ class Go2Simulation(Node):
         self.low_level_sub_step = 12
         self.timer = self.create_timer(self.high_level_period, self.update)
 
-        ########################## Cmd
+        ########################## Cmd listener
         self.create_subscription(LowCmd, "/lowcmd", self.receive_cmd_cb, 10)
         self.last_cmd_msg = LowCmd()
 
@@ -41,6 +41,12 @@ class Go2Simulation(Node):
         else:
             self.get_logger().error("Simulation tool not recognized")
 
+        ########################## Initial state
+        self.q_current = np.zeros(7 + 12)
+        self.v_current = np.zeros(6 + 12)
+        self.a_current = np.zeros(6 + 12)
+        self.f_current = np.zeros(4)
+
 
     def update(self):
         ## Control robot
@@ -49,10 +55,11 @@ class Go2Simulation(Node):
         tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)])
         kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
         kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
+
         for _ in range(self.low_level_sub_step):
             # Iterate to simulate motor internal controller
-            tau_cmd = tau_des - np.multiply(q_current[7:]-q_des, kp_des) - np.multiply(v_current[6:]-v_des, kd_des)
-            q_current, v_current, a_current, f_current = self.simulator.execute_step(tau_cmd)
+            tau_cmd = tau_des - np.multiply(self.q_current[7:]-q_des, kp_des) - np.multiply(self.v_current[6:]-v_des, kd_des)
+            self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_cmd)
 
         ## Send proprioceptive measures (LowState)
         low_msg = LowState()
@@ -64,11 +71,11 @@ class Go2Simulation(Node):
         # Format motor readings
         for joint_idx in range(12):
             low_msg.motor_state[joint_idx].mode = 1
-            low_msg.motor_state[joint_idx].q = q_current[7 + joint_idx]
-            low_msg.motor_state[joint_idx].dq = v_current[6 + joint_idx]
+            low_msg.motor_state[joint_idx].q = self.q_current[7 + joint_idx]
+            low_msg.motor_state[joint_idx].dq = self.v_current[6 + joint_idx]
 
         # Format IMU
-        low_msg.imu_state.quaternion = q_current[3:7].tolist()
+        low_msg.imu_state.quaternion = self.q_current[3:7].tolist()
 
         # Publish essage
         self.lowstate_publisher.publish(low_msg)
@@ -78,32 +85,32 @@ class Go2Simulation(Node):
         odometry_msg.header.stamp = timestamp
         odometry_msg.header.frame_id = "odom"
         odometry_msg.child_frame_id = "base"
-        odometry_msg.pose.pose.position.x = q_current[0]
-        odometry_msg.pose.pose.position.y = q_current[1]
-        odometry_msg.pose.pose.position.z = q_current[2]
-        odometry_msg.pose.pose.orientation.x = q_current[3]
-        odometry_msg.pose.pose.orientation.y = q_current[4]
-        odometry_msg.pose.pose.orientation.z = q_current[5]
-        odometry_msg.pose.pose.orientation.w = q_current[6]
-        odometry_msg.twist.twist.linear.x = v_current[0]
-        odometry_msg.twist.twist.linear.y = v_current[1]
-        odometry_msg.twist.twist.linear.z = v_current[2]
-        odometry_msg.twist.twist.angular.x = v_current[3]
-        odometry_msg.twist.twist.angular.y = v_current[4]
-        odometry_msg.twist.twist.angular.z = v_current[5]
+        odometry_msg.pose.pose.position.x = self.q_current[0]
+        odometry_msg.pose.pose.position.y = self.q_current[1]
+        odometry_msg.pose.pose.position.z = self.q_current[2]
+        odometry_msg.pose.pose.orientation.x = self.q_current[3]
+        odometry_msg.pose.pose.orientation.y = self.q_current[4]
+        odometry_msg.pose.pose.orientation.z = self.q_current[5]
+        odometry_msg.pose.pose.orientation.w = self.q_current[6]
+        odometry_msg.twist.twist.linear.x = self.v_current[0]
+        odometry_msg.twist.twist.linear.y = self.v_current[1]
+        odometry_msg.twist.twist.linear.z = self.v_current[2]
+        odometry_msg.twist.twist.angular.x = self.v_current[3]
+        odometry_msg.twist.twist.angular.y = self.v_current[4]
+        odometry_msg.twist.twist.angular.z = self.v_current[5]
         self.odometry_publisher.publish(odometry_msg)
 
         # Forwar odometry on tf
         transform_msg.header.stamp = timestamp
         transform_msg.header.frame_id = "odom"
         transform_msg.child_frame_id = "base"
-        transform_msg.transform.translation.x = q_current[0]
-        transform_msg.transform.translation.y = q_current[1]
-        transform_msg.transform.translation.z = q_current[2]
-        transform_msg.transform.rotation.x = q_current[3]
-        transform_msg.transform.rotation.y = q_current[4]
-        transform_msg.transform.rotation.z = q_current[5]
-        transform_msg.transform.rotation.w = q_current[6]
+        transform_msg.transform.translation.x = self.q_current[0]
+        transform_msg.transform.translation.y = self.q_current[1]
+        transform_msg.transform.translation.z = self.q_current[2]
+        transform_msg.transform.rotation.x = self.q_current[3]
+        transform_msg.transform.rotation.y = self.q_current[4]
+        transform_msg.transform.rotation.z = self.q_current[5]
+        transform_msg.transform.rotation.w = self.q_current[6]
         self.tf_broadcaster.sendTransform(transform_msg)
 
     def receive_cmd_cb(self, msg):
