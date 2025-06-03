@@ -34,7 +34,6 @@ class BulletWrapper(AbstractSimulatorWrapper):
             self.j_idx.append(self.get_joint_id(j))
 
         # Set robot initial config on the ground
-        # initial_q = [0.39, 1.00, -2.51, -0.30, 1.09, -2.61, 0.59, 1.19, -2.59, -0.40, 1.32, -2.79]
         initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
         for i, id in enumerate(self.j_idx):
             pybullet.resetJointState(self.robot, id, initial_q[i])
