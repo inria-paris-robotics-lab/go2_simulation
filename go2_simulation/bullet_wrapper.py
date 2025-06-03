@@ -17,7 +17,8 @@ class BulletWrapper():
             pybullet.connect(pybullet.GUI)
 
         # Load robot
-        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 0.3])
+        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 1])
+        self.id_contact_bullet = [7, 16, 25, 34]
 
         # Load ground plane
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -59,7 +60,28 @@ class BulletWrapper():
             if joint_info[1].decode("utf-8") == joint_name:
                 return i
         return None  # Joint name not found
-
+    
+    def get_contact_point(self):
+        cp = []
+        cp_bullet = pybullet.getContactPoints()
+        for el in cp_bullet:
+            cp.append((el[3], el[9]))
+            print((el[3], el[9]))
+        return cp
+    
+    def get_contact_force(self):
+        cp_bullet = pybullet.getContactPoints()
+        cs_bullet = []
+        for contact in self.id_contact_bullet:
+            force = 0
+            for el in cp_bullet:
+                if el[3] == contact and el[9] > 5:
+                    force = int(el[9])
+                    break
+            cs_bullet.append(force)
+        
+        return cs_bullet
+    
     def get_state(self):
         joint_states = pybullet.getJointStates(self.robot, self.j_idx)
         joint_position = np.array([joint_state[0] for joint_state in joint_states])
@@ -69,6 +91,8 @@ class BulletWrapper():
 
         rotation = R.from_quat(angular_pose)
         linear_pose -= rotation.as_matrix() @ self.localInertiaPos
+        linear_vel = rotation.as_matrix().T @ linear_vel
+        angular_vel = rotation.as_matrix().T @ angular_vel
 
         q_current = np.concatenate((np.array(linear_pose), np .array(angular_pose), joint_position))
         v_current = np.concatenate((np.array(linear_vel), np.array(angular_vel), joint_velocity))

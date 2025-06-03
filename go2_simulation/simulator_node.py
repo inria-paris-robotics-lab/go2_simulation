@@ -30,6 +30,8 @@ class Go2Simulator(Node):
         self.get_logger().info("go2_simulator::loading simulator")
         timestep = self.high_level_period / self.low_level_sub_step
 
+        self.id_bullet = [3, 10, 17, 24]
+
         if simulator_name == "simple":
             from go2_simulation.simple_wrapper import SimpleWrapper
             self.simulator = SimpleWrapper(self, timestep)
@@ -38,6 +40,7 @@ class Go2Simulator(Node):
             self.simulator = BulletWrapper(timestep)
         else:
             self.get_logger().error("Simulation tool not recognized")
+        _, self.v_current_prev = self.simulator.get_state()
 
 
     def update(self):
@@ -49,12 +52,31 @@ class Go2Simulator(Node):
 
         # Read sensors
         q_current, v_current = self.simulator.get_state()
+        #q_current[:2] = np.zeros(2)
         for joint_idx in range(self.simulator.njoints):
             low_msg.motor_state[joint_idx].mode = 1
             low_msg.motor_state[joint_idx].q = q_current[7 + joint_idx]
             low_msg.motor_state[joint_idx].dq = v_current[6 + joint_idx]
         # Read IMU
         low_msg.imu_state.quaternion = q_current[3:7].tolist()
+        gyro_measure = v_current[3:6] #+ np.random.normal(0, 0.0001, 3)
+        low_msg.imu_state.gyroscope = gyro_measure.tolist()
+        acceleration = (v_current[:3] - self.v_current_prev[:3]) / self.high_level_period
+        acceleration[2] += 9.81
+        #acceleration += np.random.normal(0, 0.0001, 3)
+        low_msg.imu_state.accelerometer = acceleration.tolist()
+        self.v_current_prev = v_current
+
+        """ for i in range(4):
+            fid = 0
+            for j in range(len(cp_bullet)):
+                if cp_bullet[j][0] == self.id_bullet[i]:
+                    fid = max(fid, cp_bullet[j][1])
+            foot_force[i] = fid """
+        #print(self.simulator.get_contact_force())
+        #low_msg.foot_force = self.simulator.get_contact_force()
+        low_msg.foot_force = [41, 40, 40, 40]
+
 
         # Robot state
         self.lowstate_publisher.publish(low_msg)
