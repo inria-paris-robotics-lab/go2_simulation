@@ -18,20 +18,36 @@ class BulletWrapper(AbstractSimulatorWrapper):
 
         # Load robot
         self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 0.3])
+        self.localInertiaPos = pybullet.getDynamicsInfo(self.robot, -1)[3]
 
-        # Load ground plane
+        # Load ground plane and other obstacles
+        self.env_ids = [] # Keep track of all obstacles
+
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = pybullet.loadURDF("plane.urdf")
-        self.localInertiaPos = pybullet.getDynamicsInfo(self.robot, -1)[3]
+        self.env_ids.append(self.plane_id)
         pybullet.resetBasePositionAndOrientation(self.plane_id, self.localInertiaPos, [0, 0, 0, 1])
 
+        # Set time step
         pybullet.setTimeStep(timestep)
 
+        # Prepare joint ordering
         self.joint_order = ["FR_hip_joint", "FR_thigh_joint", "FR_calf_joint", "FL_hip_joint", "FL_thigh_joint", "FL_calf_joint", "RR_hip_joint", "RR_thigh_joint", "RR_calf_joint", "RL_hip_joint", "RL_thigh_joint", "RL_calf_joint"]
-
         self.j_idx = []
         for j in self.joint_order:
             self.j_idx.append(self.get_joint_id(j))
+
+        # Feet ids
+        num_joints = pybullet.getNumJoints(self.robot)
+        feet_names = [name + '_foot' for name in ("FR", "FL", "RR", "RL")]
+        self.feet_idx = [-1] * len(feet_names)
+
+        for i in range(num_joints):
+            joint_info = pybullet.getJointInfo(self.robot, i)
+            link_name = joint_info[12].decode('utf-8')
+            if link_name in feet_names:
+                foot_id = feet_names.index(link_name)
+                self.feet_idx[foot_id] = (i, link_name)
 
         # Set robot initial config on the ground
         initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
@@ -92,5 +108,14 @@ class BulletWrapper(AbstractSimulatorWrapper):
         f_current = np.zeros(4)
 
         self.v_last = v_current
+
+        # Get feet contact
+        for i, (joint_idx, link_name) in enumerate(self.feet_idx):
+            # Check contact point with any obstacle (ground included)
+            contact_points = []
+            for id in self.env_ids:
+                contact_points += pybullet.getClosestPoints(self.robot, id, 0.005, joint_idx)
+            if len(contact_points) > 0: # If contact
+                f_current[i] = 100 # arbitrary value for now
 
         return q_current, v_current, a_current, f_current
