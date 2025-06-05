@@ -19,7 +19,7 @@ class BulletWrapper(AbstractSimulatorWrapper):
             pybullet.connect(pybullet.GUI)
 
         # Load robot
-        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 0.3])
+        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 0.6])
         self.localInertiaPos = pybullet.getDynamicsInfo(self.robot, -1)[3]
 
         # Load ground plane and other obstacles
@@ -99,13 +99,20 @@ class BulletWrapper(AbstractSimulatorWrapper):
         joint_states = pybullet.getJointStates(self.robot, self.j_idx)
         joint_position = np.array([joint_state[0] for joint_state in joint_states])
         joint_velocity = np.array([joint_state[1] for joint_state in joint_states])
-
+        
         linear_pose, angular_pose = pybullet.getBasePositionAndOrientation(self.robot)
-        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot) # World frame
+        linear_vel, angular_vel = pybullet.getBaseVelocity(self.robot) # Local world aligned frame
 
         # Offset pos because pybullet doesn't use the same origin
         rot_mat = R.from_quat(angular_pose).as_matrix()
-        linear_pose -= rot_mat @ self.localInertiaPos
+        linear_pose += rot_mat @ self.localInertiaPos
+        
+        # Transform from Local world aligned to local
+        linear_vel = rot_mat.T @ linear_vel
+        angular_vel = rot_mat.T @ angular_vel
+
+        # Take base offset into account for linear velocity
+        linear_vel += rot_mat.T @ np.cross(self.localInertiaPos, angular_vel)
 
         q_current = np.concatenate((np.array(linear_pose), np .array(angular_pose), joint_position))
         v_current = np.concatenate((np.array(linear_vel), np.array(angular_vel), joint_velocity))

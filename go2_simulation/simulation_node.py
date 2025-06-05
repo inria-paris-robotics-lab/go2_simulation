@@ -60,6 +60,7 @@ class Go2Simulation(Node):
         for _ in range(self.low_level_sub_step):
             # Iterate to simulate motor internal controller
             tau_cmd = tau_des - np.multiply(self.q_current[7:]-q_des, kp_des) - np.multiply(self.v_current[6:]-v_des, kd_des)
+            # Simulator outputs base velocity and acceleration in local frame
             self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_cmd)
 
         ## Send proprioceptive measures (LowState)
@@ -80,19 +81,17 @@ class Go2Simulation(Node):
 
         # Format IMU
         quat_xyzw = self.q_current[3:7].tolist()
-        w_angular_vel = self.v_current[3:6]
-        w_linear_acc = self.a_current[0:3]
+        l_angular_vel = self.v_current[3:6] # In local frame
+        l_linear_acc = self.a_current[0:3] # In local frame
 
         # Rearrange quaternion
         quat_wxyz = quat_xyzw[-1:] + quat_xyzw[:-1]
         low_msg.imu_state.quaternion = quat_wxyz
 
-        # Convert from world to local frame
+        # Convert gravity from world to local frame
         rot_mat = R.from_quat(quat_xyzw).as_matrix()
-        l_angular_vel = rot_mat.T @ w_angular_vel
-        l_linear_acc = rot_mat.T @ w_linear_acc
-
         gravity = rot_mat @ np.array([0, 0, 9.81]) # This seems wrong. Proper computation should be done between base and imu frame
+
         imu_acc = l_linear_acc + gravity
 
         low_msg.imu_state.gyroscope = l_angular_vel.astype(np.float32)
