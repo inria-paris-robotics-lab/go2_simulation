@@ -29,19 +29,28 @@ class SimpleSimulator:
             patch_req.setPatchTolerance(args["patch_tolerance"])
 
         # Simulation parameters
-        self.simulator = simple.SimulatorInstance(model, self.data, geom_model, self.geom_data)
-        self.simulator.contact_solver_info = pin.ProximalSettings(
-            args["tol"], args["tol_rel"], args["mu_prox"], args["maxit"]
-        )
+        self.simulator = simple.Simulator(model, self.data, geom_model, self.geom_data)
+        # admm
+        self.simulator.admm_constraint_solver_settings.absolute_precision = args["tol"]
+        self.simulator.admm_constraint_solver_settings.relative_precision = args["tol_rel"]
+        self.simulator.admm_constraint_solver_settings.max_iter = args["maxit"]
+        self.simulator.admm_constraint_solver_settings.mu = args["mu_prox"]
+        # pgs 
+        self.simulator.pgs_constraint_solver_settings.absolute_precision = args["tol"]
+        self.simulator.pgs_constraint_solver_settings.relative_precision = args["tol_rel"]
+        self.simulator.pgs_constraint_solver_settings.max_iter = args["maxit"]
+        #
         self.simulator.warm_start_constraint_forces = args["warm_start"]
         self.simulator.measure_timings = True
         # Contact patch settings
-        self.simulator.constraint_problem.setMaxNumberOfContactsPerCollisionPair(
+        self.simulator.constraints_problem.setMaxNumberOfContactsPerCollisionPair(
             args["max_patch_size"]
         )
         # Baumgarte settings
-        self.simulator.constraint_problem.Kp = args["Kp"]
-        self.simulator.constraint_problem.Kd = args["Kd"]
+        contact_constraints = self.simulator.constraints_problem.frictional_point_constraint_models
+        for i in range(len(contact_constraints)):
+            contact_constraints[i].baumgarte_corrector_parameters.Kp = args["Kp"]
+            contact_constraints[i].baumgarte_corrector_parameters.Kd = args["Kd"]
         if args["admm_update_rule"] == "spectral":
             self.simulator.admm_constraint_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.SPECTRAL
@@ -62,18 +71,16 @@ class SimpleSimulator:
         self.a = np.zeros(self.model.nv)
         self.f_feet = np.zeros(4)
 
-        self.fext = [pin.Force(np.zeros(6)) for _ in range(model.njoints)]
         fps = min([self.args["max_fps"], 1.0 / self.dt])
         self.dt_vis = 1.0 / float(fps)
         self.simulator.reset()
 
-        pass
 
     def execute(self, tau):
         if self.args["contact_solver"] == "ADMM":
-            self.simulator.step(self.q, self.v, tau, self.fext, self.dt)
+            self.simulator.step(self.q, self.v, tau, self.dt)
         else:
-            self.simulator.stepPGS(self.q, self.v, tau, self.fext, self.dt)
+            self.simulator.stepPGS(self.q, self.v, tau, self.dt)
         #print(self.simulator.getStepCPUTimes().user)
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
@@ -231,7 +238,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
                 i = i + 1
 
         # Create the simulator object
-        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, np.zeros(self.rmodel.nv), self.params)
+        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, self.params)
 
     def step(self, tau_cmd):
         # Execute step and get new state
