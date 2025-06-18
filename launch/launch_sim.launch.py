@@ -1,6 +1,8 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import PythonExpression
 from launch_ros.actions import Node
 
 def generate_launch_description():
@@ -11,6 +13,8 @@ def generate_launch_description():
         description="Which simulator to use 'pybullet' or 'simple'"
     )
 
+    simulator = LaunchConfiguration('simulator')
+
     # Node configuration
     go2_simulation_node = Node(
         package='go2_simulation',  # Replace with the actual package name
@@ -19,13 +23,22 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {
-                'simulator': LaunchConfiguration('simulator'),
+                'simulator': simulator,
             }
         ]
+    )
+
+    go2_viewer_node = Node(
+        package='go2_simulation',
+        executable='viewer_node',
+        name='viewer_node',
+        output='screen',
+        condition=IfCondition(PythonExpression(["'", simulator, "' == 'simple'"]))
     )
 
     # Launch description
     return LaunchDescription([
         simulator_arg,
-        go2_simulation_node
+        go2_simulation_node,
+        go2_viewer_node
     ])
