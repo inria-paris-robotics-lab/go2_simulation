@@ -61,7 +61,7 @@ class Go2Simulation(Node):
             # Iterate to simulate motor internal controller
             tau_cmd = tau_des - np.multiply(self.q_current[7:]-q_des, kp_des) - np.multiply(self.v_current[6:]-v_des, kd_des)
             # Simulator outputs base velocity and acceleration in local frame
-            self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_cmd)
+            self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_des)
 
         ## Send proprioceptive measures (LowState)
         low_msg = LowState()
