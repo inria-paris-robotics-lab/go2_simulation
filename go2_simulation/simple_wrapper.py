@@ -1,6 +1,5 @@
 import numpy as np
 from go2_description.loader import loadGo2
-from go2_description import GO2_DESCRIPTION_URDF_PATH, GO2_DESCRIPTION_PACKAGE_DIR
 import hppfcl
 import pinocchio as pin
 import simple
@@ -30,15 +29,9 @@ class SimpleSimulator:
 
         # Simulation parameters
         self.simulator = simple.Simulator(model, self.data, geom_model, self.geom_data)
-        # admm
-        self.simulator.admm_constraint_solver_settings.absolute_precision = args["tol"]
-        self.simulator.admm_constraint_solver_settings.relative_precision = args["tol_rel"]
-        self.simulator.admm_constraint_solver_settings.max_iter = args["maxit"]
-        self.simulator.admm_constraint_solver_settings.mu = args["mu_prox"]
-        # pgs 
-        self.simulator.pgs_constraint_solver_settings.absolute_precision = args["tol"]
-        self.simulator.pgs_constraint_solver_settings.relative_precision = args["tol_rel"]
-        self.simulator.pgs_constraint_solver_settings.max_iter = args["maxit"]
+        self.simulator.contact_solver_info = pin.ProximalSettings(
+            args["tol"], args["tol_rel"], args["mu_prox"], args["maxit"]
+        )
         #
         self.simulator.warm_start_constraint_forces = args["warm_start"]
         self.simulator.measure_timings = True
@@ -47,10 +40,8 @@ class SimpleSimulator:
             args["max_patch_size"]
         )
         # Baumgarte settings
-        contact_constraints = self.simulator.constraints_problem.frictional_point_constraint_models
-        for i in range(len(contact_constraints)):
-            contact_constraints[i].baumgarte_corrector_parameters.Kp = args["Kp"]
-            contact_constraints[i].baumgarte_corrector_parameters.Kd = args["Kd"]
+        self.simulator.constraints_problem.Kp = args["Kp"]
+        self.simulator.constraints_problem.Kd = args["Kd"]
         if args["admm_update_rule"] == "spectral":
             self.simulator.admm_constraint_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.SPECTRAL
@@ -70,6 +61,7 @@ class SimpleSimulator:
         self.v = np.zeros(self.model.nv)
         self.a = np.zeros(self.model.nv)
         self.f_feet = np.zeros(4)
+        self.fext = [pin.Force(np.zeros(6)) for _ in range(self.model.njoints)]
 
         fps = min([self.args["max_fps"], 1.0 / self.dt])
         self.dt_vis = 1.0 / float(fps)
@@ -78,9 +70,9 @@ class SimpleSimulator:
 
     def execute(self, tau):
         if self.args["contact_solver"] == "ADMM":
-            self.simulator.step(self.q, self.v, tau, self.dt)
+            self.simulator.step(self.q, self.v, tau, self.fext, self.dt)
         else:
-            self.simulator.stepPGS(self.q, self.v, tau, self.dt)
+            self.simulator.stepPGS(self.q, self.v, tau, self.fext, self.dt)
         #print(self.simulator.getStepCPUTimes().user)
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
@@ -188,12 +180,15 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         ########################## Load robot model and geometry
         robot = loadGo2()
         self.rmodel = robot.model
+        self.geom_model = robot.collision_model
+        self.visual_model = robot.visual_model
 
-        with open(GO2_DESCRIPTION_URDF_PATH, 'r') as file:
-            file_content = file.read()
-
-        self.geom_model = pin.GeometryModel()
-        pin.buildGeomFromUrdfString(self.rmodel, file_content, pin.GeometryType.VISUAL, self.geom_model, GO2_DESCRIPTION_PACKAGE_DIR)
+        # Ignore friction and kinematics limits
+        """ for i in range(self.rmodel.nq):
+            self.rmodel.lowerPositionLimit[i] = np.finfo("d").min
+            self.rmodel.upperPositionLimit[i] = np.finfo("d").max 
+        self.rmodel.lowerDryFrictionLimit[:] = 0
+        self.rmodel.upperDryFrictionLimit[:] = 0"""
 
         # Load parameters from node
         self.params = {
@@ -209,36 +204,35 @@ class SimpleWrapper(AbstractSimulatorWrapper):
             'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
             'maxit': node.declare_parameter('maxit', 100).value,
             'warm_start': node.declare_parameter('warm_start', 1).value,
-            'contact_solver': node.declare_parameter('contact_solver', 'ADMM').value,
+            'contact_solver': node.declare_parameter('contact_solver', 'PGS').value,
             'admm_update_rule': node.declare_parameter('admm_update_rule', 'spectral').value,
-            'max_patch_size': node.declare_parameter('max_patch_size', 4).value,
-            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-3).value,
+            'max_patch_size': node.declare_parameter('max_patch_size', 2).value,
+            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-2).value,
         }
 
         self.init_simple(timestep)
 
     def init_simple(self, timestep):
-        visual_model = self.geom_model.copy()
-        addFloor(self.geom_model, visual_model)
-
         # Set simulation properties
         self.params["dt"] = timestep
-        initial_q = np.array([0, 0, 0.2, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
+        initial_q = self.rmodel.referenceConfigurations["standing"] #np.array([0, 0, 0.4, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
+        initial_q[2] += 0.2
+        addFloor(self.geom_model, self.visual_model)
         setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.geom_model)
         addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
 
          # Remove all pair of collision which does not concern floor collision
-        i = 0
+        """ i = 0
         while i < len(self.geom_model.collisionPairs):
             cp = self.geom_model.collisionPairs[i]
             if self.geom_model.geometryObjects[cp.first].name != 'floor' and self.geom_model.geometryObjects[cp.second].name != 'floor':
                 self.geom_model.removeCollisionPair(cp)
             else:
-                i = i + 1
+                i = i + 1 """
 
         # Create the simulator object
-        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, self.params)
+        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, self.visual_model, initial_q, self.params)
 
     def step(self, tau_cmd):
         # Execute step and get new state
