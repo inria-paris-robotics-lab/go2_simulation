@@ -23,6 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'simulation_node = go2_simulation.simulation_node:main',
+            'viewer_node = go2_simulation.viewer_node:main',
         ],
     },
 )
