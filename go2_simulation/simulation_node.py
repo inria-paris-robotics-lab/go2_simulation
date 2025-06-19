@@ -20,7 +20,7 @@ class Go2Simulation(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Timer to publish periodically
-        self.high_level_period = 1./500  # seconds
+        self.high_level_period = 2e-3 # seconds
         self.low_level_sub_step = 12
         self.timer = self.create_timer(self.high_level_period, self.update)
 
@@ -61,7 +61,7 @@ class Go2Simulation(Node):
             # Iterate to simulate motor internal controller
             tau_cmd = tau_des - np.multiply(self.q_current[7:]-q_des, kp_des) - np.multiply(self.v_current[6:]-v_des, kd_des)
             # Simulator outputs base velocity and acceleration in local frame
-            self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_des)
+            self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_cmd)
 
         ## Send proprioceptive measures (LowState)
         low_msg = LowState()
