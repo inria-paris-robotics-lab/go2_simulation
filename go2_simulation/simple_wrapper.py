@@ -73,15 +73,10 @@ class SimpleSimulator:
             self.simulator.step(self.q, self.v, tau, self.fext, self.dt)
         else:
             self.simulator.stepPGS(self.q, self.v, tau, self.fext, self.dt)
-        #print(self.simulator.getStepCPUTimes().user)
+
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
         self.a = self.simulator.anew.copy()
-
-        #print("elapsed simu time " + str(step_end - step_start))
-        #time_until_next_step = self.dt_vis - (time.time() - step_start)
-        #if time_until_next_step > 0:
-        #    time.sleep(time_until_next_step)
 
         return self.q, self.v, self.a, self.f_feet
 
@@ -174,11 +169,14 @@ def addSystemCollisionPairs(model, geom_model, qref):
                                 col_pair = pin.CollisionPair(i, j)
                                 geom_model.addCollisionPair(col_pair)
     print("Num col pairs = ", num_col_pairs)
+    return num_col_pairs
+
 
 class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
         robot = loadGo2()
+        self.node = node
         self.rmodel = robot.model
         self.geom_model = robot.collision_model
         self.visual_model = robot.visual_model
@@ -188,7 +186,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
             self.rmodel.lowerPositionLimit[i] = np.finfo("d").min
             self.rmodel.upperPositionLimit[i] = np.finfo("d").max 
         self.rmodel.lowerDryFrictionLimit[:] = 0
-        self.rmodel.upperDryFrictionLimit[:] = 0"""
+        self.rmodel.upperDryFrictionLimit[:] = 0 """
 
         # Load parameters from node
         self.params = {
@@ -214,22 +212,22 @@ class SimpleWrapper(AbstractSimulatorWrapper):
 
     def init_simple(self, timestep):
         # Set simulation properties
-        self.params["dt"] = timestep
-        initial_q = self.rmodel.referenceConfigurations["standing"] #np.array([0, 0, 0.4, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
-        initial_q[2] += 0.2
+        #self.params["dt"] = timestep
+        initial_q = np.array([0, 0, 0.19, 0, 0, 0, 1, 0.0, 1.4, -2.5, 0.0, 1.4, -2.5, 0., 1.4, -2.5, 0, 1.4, -2.5])
         addFloor(self.geom_model, self.visual_model)
         setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.geom_model)
-        addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
+        ncp = addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
+        self.node.get_logger().info("nbr of collision " + str(ncp))
 
          # Remove all pair of collision which does not concern floor collision
-        """ i = 0
+        i = 0
         while i < len(self.geom_model.collisionPairs):
             cp = self.geom_model.collisionPairs[i]
             if self.geom_model.geometryObjects[cp.first].name != 'floor' and self.geom_model.geometryObjects[cp.second].name != 'floor':
                 self.geom_model.removeCollisionPair(cp)
             else:
-                i = i + 1 """
+                i = i + 1
 
         # Create the simulator object
         self.simulator = SimpleSimulator(self.rmodel, self.geom_model, self.visual_model, initial_q, self.params)
