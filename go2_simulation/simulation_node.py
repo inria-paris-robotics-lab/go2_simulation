@@ -2,6 +2,8 @@ import rclpy
 from rclpy.node import Node
 from unitree_go.msg import LowState, LowCmd
 from nav_msgs.msg import Odometry
+from rosgraph_msgs.msg import Clock
+from builtin_interfaces.msg import Time
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -18,6 +20,8 @@ class Go2Simulation(Node):
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
         self.odometry_publisher = self.create_publisher(Odometry, "/odometry/filtered", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
+        self.clock_publisher_ = self.create_publisher(Clock, '/clock', 10)
+        self.time = Clock(clock=Time(sec=0, nanosec=0))
 
         # Timer to publish periodically
         self.high_level_period = 1./500  # seconds
@@ -50,6 +54,12 @@ class Go2Simulation(Node):
 
 
     def update(self):
+        ## Update time
+        self.time.clock.nanosec += 2000000
+        self.time.clock.sec += int(self.time.clock.nanosec//1000000000)
+        self.time.clock.nanosec %= 1000000000
+        self.clock_publisher_.publish(self.time)
+
         ## Control robot
         q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
         v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
