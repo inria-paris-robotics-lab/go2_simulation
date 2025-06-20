@@ -62,6 +62,8 @@ class SimpleSimulator:
         self.a = np.zeros(self.model.nv)
         self.f_feet = np.zeros(4)
         self.fext = [pin.Force(np.zeros(6)) for _ in range(self.model.njoints)]
+        self.foot_names = ["FR_foot_0", "FL_foot_0", "RR_foot_0", "RL_foot_0"]
+        self.all_col_pairs = self.simulator.geom_model.collisionPairs.tolist()
 
         fps = min([self.args["max_fps"], 1.0 / self.dt])
         self.dt_vis = 1.0 / float(fps)
@@ -77,6 +79,16 @@ class SimpleSimulator:
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
         self.a = self.simulator.anew.copy()
+        
+        # Detect contact through pair of collision
+        current_col_pairs = self.simulator.constraints_problem.pairs_in_collision.tolist()
+        self.f_feet = np.zeros(4)
+        for cp_id in current_col_pairs:
+            cp = self.all_col_pairs[cp_id]
+            first = self.simulator.geom_model.geometryObjects[cp.first].name
+            second = self.simulator.geom_model.geometryObjects[cp.second].name
+            if (first in self.foot_names) or (second in self.foot_names):
+                self.f_feet[self.foot_names.index(first)] = 1
 
         return self.q, self.v, self.a, self.f_feet
 
@@ -112,12 +124,7 @@ def removeBVHModelsIfAny(geom_model: pin.GeometryModel):
 
 def addFloor(geom_model: pin.GeometryModel, visual_model: pin.GeometryModel):   
     # Collision object
-    # floor_collision_shape = hppfcl.Box(10, 10, 2)
-    # M = pin.SE3(np.eye(3), np.zeros(3))
-    # M.translation = np.array([0.0, 0.0, -(1.99 / 2.0)])
     floor_collision_shape = hppfcl.Halfspace(0, 0, 1, 0)
-    # floor_collision_shape = hppfcl.Plane(0, 0, 1, 0)
-    # floor_collision_shape.setSweptSphereRadius(0.5)
     M = pin.SE3.Identity()
     floor_collision_object = pin.GeometryObject("floor", 0, 0, M, floor_collision_shape)
     geom_model.addGeometryObject(floor_collision_object)
@@ -201,13 +208,14 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         self.init_simple()
 
     def init_simple(self):
-        # Set simulation properties
+        # Start the robot in crouch pose 15cm above the ground
         initial_q = np.array([0, 0, 0.15, 0, 0, 0, 1, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0., 0.9, -2.5, 0, 0.9, -2.5])
+
+        # Set simulation properties
         addFloor(self.geom_model, self.visual_model)
         setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.geom_model)
         ncp = addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
-        self.node.get_logger().info("nbr of collision " + str(ncp))
 
         # Unitree joint ordering (FR, FL, RR, RL)
         self.joint_order = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
@@ -227,8 +235,13 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         # Reorder state from pinocchio to unitree order
         q_unitree = q_current.copy()
         v_unitree = v_current.copy()
+        a_unitree = a_current.copy()
         for i in range(12):
             q_unitree[7 + i] = q_current[7 + self.joint_order[i]]
             v_unitree[6 + i] = v_current[6 + self.joint_order[i]]
+            a_unitree[6 + i] = a_current[6 + self.joint_order[i]]
+        
+        # Reorder contacts from (FL, FR, RR, RL) to (FR, FL, RR, RL)
+        f_unitree = np.array([f_current[1], f_current[0], f_current[3], f_current[2]])
 
-        return q_unitree, v_unitree, a_current, f_current
+        return q_unitree, v_unitree, a_unitree, f_unitree
