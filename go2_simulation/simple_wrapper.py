@@ -29,9 +29,15 @@ class SimpleSimulator:
 
         # Simulation parameters
         self.simulator = simple.Simulator(model, self.data, geom_model, self.geom_data)
-        self.simulator.contact_solver_info = pin.ProximalSettings(
-            args["tol"], args["tol_rel"], args["mu_prox"], args["maxit"]
-        )
+        # admm
+        self.simulator.admm_constraint_solver_settings.absolute_precision = args["tol"]
+        self.simulator.admm_constraint_solver_settings.relative_precision = args["tol_rel"]
+        self.simulator.admm_constraint_solver_settings.max_iter = args["maxit"]
+        self.simulator.admm_constraint_solver_settings.mu = args["mu_prox"]
+        # pgs 
+        self.simulator.pgs_constraint_solver_settings.absolute_precision = args["tol"]
+        self.simulator.pgs_constraint_solver_settings.relative_precision = args["tol_rel"]
+        self.simulator.pgs_constraint_solver_settings.max_iter = args["maxit"]
         #
         self.simulator.warm_start_constraint_forces = args["warm_start"]
         self.simulator.measure_timings = True
@@ -40,8 +46,10 @@ class SimpleSimulator:
             args["max_patch_size"]
         )
         # Baumgarte settings
-        self.simulator.constraints_problem.Kp = args["Kp"]
-        self.simulator.constraints_problem.Kd = args["Kd"]
+        contact_constraints = self.simulator.constraints_problem.frictional_point_constraint_models
+        for i in range(len(contact_constraints)):
+            contact_constraints[i].baumgarte_corrector_parameters.Kp = args["Kp"]
+            contact_constraints[i].baumgarte_corrector_parameters.Kd = args["Kd"]
         if args["admm_update_rule"] == "spectral":
             self.simulator.admm_constraint_solver_settings.admm_update_rule = (
                 pin.ADMMUpdateRule.SPECTRAL
@@ -61,7 +69,6 @@ class SimpleSimulator:
         self.v = np.zeros(self.model.nv)
         self.a = np.zeros(self.model.nv)
         self.f_feet = np.zeros(4)
-        self.fext = [pin.Force(np.zeros(6)) for _ in range(self.model.njoints)]
         self.foot_names = ["FR_foot_0", "FL_foot_0", "RR_foot_0", "RL_foot_0"]
         self.all_col_pairs = self.simulator.geom_model.collisionPairs.tolist()
 
@@ -72,9 +79,9 @@ class SimpleSimulator:
 
     def execute(self, tau):
         if self.args["contact_solver"] == "ADMM":
-            self.simulator.step(self.q, self.v, tau, self.fext, self.dt)
+            self.simulator.step(self.q, self.v, tau, self.dt)
         else:
-            self.simulator.stepPGS(self.q, self.v, tau, self.fext, self.dt)
+            self.simulator.stepPGS(self.q, self.v, tau, self.dt)
 
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
@@ -173,7 +180,6 @@ class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
         robot = loadGo2()
-        self.node = node
         self.rmodel = robot.model
         self.geom_model = robot.collision_model
         self.visual_model = robot.visual_model
@@ -215,7 +221,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         addFloor(self.geom_model, self.visual_model)
         setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.geom_model)
-        ncp = addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
+        addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
 
         # Unitree joint ordering (FR, FL, RR, RL)
         self.joint_order = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
