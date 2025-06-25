@@ -8,7 +8,8 @@ from ament_index_python.packages import get_package_share_directory
 import os
 
 class BulletWrapper(AbstractSimulatorWrapper):
-    def __init__(self, timestep):
+    def __init__(self, node, timestep):
+        self.node = node
         self.init_pybullet(timestep)
 
     def init_pybullet(self, timestep):
