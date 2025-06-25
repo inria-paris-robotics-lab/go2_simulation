@@ -20,7 +20,7 @@ class BulletWrapper(AbstractSimulatorWrapper):
             pybullet.connect(pybullet.GUI)
 
         # Load robot
-        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, 0.6])
+        self.robot = pybullet.loadURDF(GO2_DESCRIPTION_URDF_PATH, [0, 0, .4])
         self.localInertiaPos = pybullet.getDynamicsInfo(self.robot, -1)[3]
 
         # Load ground plane and other obstacles
@@ -29,7 +29,7 @@ class BulletWrapper(AbstractSimulatorWrapper):
         pybullet.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane_id = pybullet.loadURDF("plane.urdf")
         self.env_ids.append(self.plane_id)
-        pybullet.resetBasePositionAndOrientation(self.plane_id, self.localInertiaPos, [0, 0, 0, 1])
+        pybullet.resetBasePositionAndOrientation(self.plane_id, [0,0,0], [0, 0, 0, 1])
 
         self.ramp_id = pybullet.loadURDF( os.path.join(get_package_share_directory("go2_simulation"), "data/assets/obstacles.urdf"))
         self.env_ids.append(self.ramp_id)
@@ -56,7 +56,7 @@ class BulletWrapper(AbstractSimulatorWrapper):
                 self.feet_idx[foot_id] = (i, link_name)
 
         # Set robot initial config on the ground
-        initial_q = [0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79]
+        initial_q = [0.0, 1.00, -2.1, 0.0, 1.00, -2.1, 0, 1.00, -2.1, 0, 1.00, -2.1]
         for i, id in enumerate(self.j_idx):
             pybullet.resetJointState(self.robot, id, initial_q[i])
 
