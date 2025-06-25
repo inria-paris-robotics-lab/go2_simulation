@@ -20,7 +20,7 @@ class Go2Simulation(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Timer to publish periodically
-        self.high_level_period = 1./500  # seconds
+        self.high_level_period = 1./500 # seconds
         self.low_level_sub_step = 12
         self.timer = self.create_timer(self.high_level_period, self.update)
 

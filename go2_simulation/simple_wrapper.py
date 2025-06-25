@@ -1,6 +1,5 @@
 import numpy as np
 from go2_description.loader import loadGo2
-from go2_description import GO2_DESCRIPTION_URDF_PATH, GO2_DESCRIPTION_PACKAGE_DIR
 import hppfcl
 import pinocchio as pin
 import simple
@@ -70,6 +69,8 @@ class SimpleSimulator:
         self.v = np.zeros(self.model.nv)
         self.a = np.zeros(self.model.nv)
         self.f_feet = np.zeros(4)
+        self.foot_names = ["FR_foot_0", "FL_foot_0", "RR_foot_0", "RL_foot_0"]
+        self.all_col_pairs = self.simulator.geom_model.collisionPairs.tolist()
 
         fps = min([self.args["max_fps"], 1.0 / self.dt])
         self.dt_vis = 1.0 / float(fps)
@@ -81,20 +82,22 @@ class SimpleSimulator:
             self.simulator.step(self.q, self.v, tau, self.dt)
         else:
             self.simulator.stepPGS(self.q, self.v, tau, self.dt)
-        #print(self.simulator.getStepCPUTimes().user)
+
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
         self.a = self.simulator.anew.copy()
-
-        #print("elapsed simu time " + str(step_end - step_start))
-        #time_until_next_step = self.dt_vis - (time.time() - step_start)
-        #if time_until_next_step > 0:
-        #    time.sleep(time_until_next_step)
+        
+        # Detect contact through pair of collision
+        current_col_pairs = self.simulator.constraints_problem.pairs_in_collision.tolist()
+        self.f_feet = np.zeros(4)
+        for cp_id in current_col_pairs:
+            cp = self.all_col_pairs[cp_id]
+            first = self.simulator.geom_model.geometryObjects[cp.first].name
+            second = self.simulator.geom_model.geometryObjects[cp.second].name
+            if (first in self.foot_names) or (second in self.foot_names):
+                self.f_feet[self.foot_names.index(first)] = 1
 
         return self.q, self.v, self.a, self.f_feet
-
-    def view_state(self, q):
-        self.vizer.display(q)
 
 
 def setPhysicsProperties(
@@ -126,24 +129,12 @@ def removeBVHModelsIfAny(geom_model: pin.GeometryModel):
             gobj.geometry = gobj.geometry.convex
 
 
-def addFloor(geom_model: pin.GeometryModel, visual_model: pin.GeometryModel):
+def addFloor(geom_model: pin.GeometryModel, visual_model: pin.GeometryModel):   
     # Collision object
-    # floor_collision_shape = hppfcl.Box(10, 10, 2)
-    # M = pin.SE3(np.eye(3), np.zeros(3))
-    # M.translation = np.array([0.0, 0.0, -(1.99 / 2.0)])
     floor_collision_shape = hppfcl.Halfspace(0, 0, 1, 0)
-    # floor_collision_shape = hppfcl.Plane(0, 0, 1, 0)
-    # floor_collision_shape.setSweptSphereRadius(0.5)
     M = pin.SE3.Identity()
     floor_collision_object = pin.GeometryObject("floor", 0, 0, M, floor_collision_shape)
     geom_model.addGeometryObject(floor_collision_object)
-
-    # Visual object
-    floor_visual_shape = hppfcl.Box(10, 10, 0.01)
-    floor_visual_object = pin.GeometryObject(
-        "floor", 0, 0, pin.SE3.Identity(), floor_visual_shape
-    )
-    visual_model.addGeometryObject(floor_visual_object)
 
 def addSystemCollisionPairs(model, geom_model, qref):
     """
@@ -182,18 +173,23 @@ def addSystemCollisionPairs(model, geom_model, qref):
                                 col_pair = pin.CollisionPair(i, j)
                                 geom_model.addCollisionPair(col_pair)
     print("Num col pairs = ", num_col_pairs)
+    return num_col_pairs
+
 
 class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
         robot = loadGo2()
         self.rmodel = robot.model
+        self.geom_model = robot.collision_model
+        self.visual_model = robot.visual_model
 
-        with open(GO2_DESCRIPTION_URDF_PATH, 'r') as file:
-            file_content = file.read()
-
-        self.geom_model = pin.GeometryModel()
-        pin.buildGeomFromUrdfString(self.rmodel, file_content, pin.GeometryType.VISUAL, self.geom_model, GO2_DESCRIPTION_PACKAGE_DIR)
+        # Ignore friction and kinematics limits inside the simulator
+        for i in range(self.rmodel.nq):
+            self.rmodel.lowerPositionLimit[i] = np.finfo("d").min
+            self.rmodel.upperPositionLimit[i] = np.finfo("d").max 
+        self.rmodel.lowerDryFrictionLimit[:] = 0
+        self.rmodel.upperDryFrictionLimit[:] = 0
 
         # Load parameters from node
         self.params = {
@@ -203,47 +199,55 @@ class SimpleWrapper(AbstractSimulatorWrapper):
             'compliance': node.declare_parameter('compliance', 0.0).value,
             'material': node.declare_parameter('material', 'metal').value,
             'horizon': node.declare_parameter('horizon', 1000).value,
-            'dt': node.declare_parameter('dt', 1e-3).value,
+            'dt': node.declare_parameter('dt', timestep).value,
             'tol': node.declare_parameter('tol', 1e-6).value,
             'tol_rel': node.declare_parameter('tol_rel', 1e-6).value,
             'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
             'maxit': node.declare_parameter('maxit', 100).value,
             'warm_start': node.declare_parameter('warm_start', 1).value,
-            'contact_solver': node.declare_parameter('contact_solver', 'ADMM').value,
+            'contact_solver': node.declare_parameter('contact_solver', 'PGS').value,
             'admm_update_rule': node.declare_parameter('admm_update_rule', 'spectral').value,
-            'max_patch_size': node.declare_parameter('max_patch_size', 4).value,
-            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-3).value,
+            'max_patch_size': node.declare_parameter('max_patch_size', 2).value,
+            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-2).value,
         }
 
-        self.init_simple(timestep)
+        self.init_simple()
 
-    def init_simple(self, timestep):
-        visual_model = self.geom_model.copy()
-        addFloor(self.geom_model, visual_model)
+    def init_simple(self):
+        # Start the robot in crouch pose 15cm above the ground
+        initial_q = np.array([0, 0, 0.15, 0, 0, 0, 1, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0., 0.9, -2.5, 0, 0.9, -2.5])
 
         # Set simulation properties
-        self.params["dt"] = timestep
-        initial_q = np.array([0, 0, 0.2, 0, 0, 0, 1, 0.0, 1.00, -2.51, 0.0, 1.09, -2.61, 0.2, 1.19, -2.59, -0.2, 1.32, -2.79])
+        addFloor(self.geom_model, self.visual_model)
         setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.geom_model)
         addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
 
-         # Remove all pair of collision which does not concern floor collision
-        i = 0
-        while i < len(self.geom_model.collisionPairs):
-            cp = self.geom_model.collisionPairs[i]
-            if self.geom_model.geometryObjects[cp.first].name != 'floor' and self.geom_model.geometryObjects[cp.second].name != 'floor':
-                self.geom_model.removeCollisionPair(cp)
-            else:
-                i = i + 1
+        # Unitree joint ordering (FR, FL, RR, RL)
+        self.joint_order = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
 
         # Create the simulator object
-        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, visual_model, initial_q, self.params)
+        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, self.visual_model, initial_q, self.params)
 
     def step(self, tau_cmd):
-        # Execute step and get new state
+        # Change torque order from unitree to pinocchio
         torque_simu = np.zeros(self.rmodel.nv)
-        torque_simu[6:] = tau_cmd
+        for i in range(12):
+            torque_simu[6 + i] = tau_cmd[self.joint_order[i]]
+
+        # Execute step and get new state
         q_current, v_current, a_current, f_current = self.simulator.execute(torque_simu)
 
-        return q_current, v_current, a_current, f_current
+        # Reorder state from pinocchio to unitree order
+        q_unitree = q_current.copy()
+        v_unitree = v_current.copy()
+        a_unitree = a_current.copy()
+        for i in range(12):
+            q_unitree[7 + i] = q_current[7 + self.joint_order[i]]
+            v_unitree[6 + i] = v_current[6 + self.joint_order[i]]
+            a_unitree[6 + i] = a_current[6 + self.joint_order[i]]
+        
+        # Reorder contacts from (FL, FR, RR, RL) to (FR, FL, RR, RL)
+        f_unitree = np.array([f_current[1], f_current[0], f_current[3], f_current[2]])
+
+        return q_unitree, v_unitree, a_unitree, f_unitree
