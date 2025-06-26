@@ -8,10 +8,9 @@ import threading
 import queue
 
 class SimpleSimulator:
-    def __init__(self, model, geom_model, visual_model, q0, args):
+    def __init__(self, model, geom_model, q0, args):
         self.model = model
         self.geom_model = geom_model
-        self.visual_model = visual_model
         self.args = args
 
         self.data = self.model.createData()
@@ -74,10 +73,7 @@ class SimpleSimulator:
         self.foot_names = ["FR_foot_0", "FL_foot_0", "RR_foot_0", "RL_foot_0"]
         self.all_col_pairs = self.simulator.geom_model.collisionPairs.tolist()
 
-        fps = min([self.args["max_fps"], 1.0 / self.dt])
-        self.dt_vis = 1.0 / float(fps)
         self.simulator.reset()
-
 
     def execute(self, tau):
         if self.args["contact_solver"] == "ADMM":
@@ -88,7 +84,7 @@ class SimpleSimulator:
         self.q = self.simulator.qnew.copy()
         self.v = self.simulator.vnew.copy()
         self.a = self.simulator.anew.copy()
-        
+
         # Detect contact through pair of collision
         current_col_pairs = self.simulator.constraints_problem.pairs_in_collision.tolist()
         self.f_feet = np.zeros(4)
@@ -243,7 +239,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         self.joint_order = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
 
         # Create the simulator object
-        self.simulator = SimpleSimulator(self.rmodel, self.robot.collision_model, self.robot.visual_model, initial_q, self.params)
+        self.simulator = SimpleSimulator(self.rmodel, self.robot.collision_model, initial_q, self.params)
 
     def _viewer_loop(self):
         self.robot.initViewer(open=True)
