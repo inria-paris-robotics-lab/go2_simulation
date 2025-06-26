@@ -203,7 +203,6 @@ class SimpleWrapper(AbstractSimulatorWrapper):
 
         # Load parameters from node
         self.params = {
-            'max_fps': node.declare_parameter('max_fps', 30).value,
             'headless': node.declare_parameter('headless', False).value,
             'Kp': node.declare_parameter('Kp', 0.0).value,
             'Kd': node.declare_parameter('Kd', 0.0).value,

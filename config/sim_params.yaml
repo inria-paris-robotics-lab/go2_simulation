@@ -1,6 +1,5 @@
 go2_simulation:
   ros__parameters:
-    max_fps: 30
     Kp: 0.0 
     Kd: 0.0 
     compliance: 0.0
