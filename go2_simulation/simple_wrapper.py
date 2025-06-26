@@ -209,7 +209,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
             'compliance': node.declare_parameter('compliance', 0.0).value,
             'material': node.declare_parameter('material', 'metal').value,
             'horizon': node.declare_parameter('horizon', 1000).value,
-            'dt': node.declare_parameter('dt', timestep).value,
+            'dt': timestep,
             'tol': node.declare_parameter('tol', 1e-6).value,
             'tol_rel': node.declare_parameter('tol_rel', 1e-6).value,
             'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
