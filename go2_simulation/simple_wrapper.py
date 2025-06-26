@@ -211,7 +211,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
             'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
             'maxit': node.declare_parameter('maxit', 100).value,
             'warm_start': node.declare_parameter('warm_start', 1).value,
-            'contact_solver': node.declare_parameter('contact_solver', 'PGS').value,
+            'contact_solver': node.declare_parameter('contact_solver', 'ADMM').value,
             'admm_update_rule': node.declare_parameter('admm_update_rule', 'spectral').value,
             'max_patch_size': node.declare_parameter('max_patch_size', 2).value,
             'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-2).value,
