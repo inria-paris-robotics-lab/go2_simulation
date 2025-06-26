@@ -4,6 +4,8 @@ import hppfcl
 import pinocchio as pin
 import simple
 from go2_simulation.abstract_wrapper import AbstractSimulatorWrapper
+import threading
+import queue
 
 class SimpleSimulator:
     def __init__(self, model, geom_model, visual_model, q0, args):
@@ -202,6 +204,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         # Load parameters from node
         self.params = {
             'max_fps': node.declare_parameter('max_fps', 30).value,
+            'headless': node.declare_parameter('headless', False).value,
             'Kp': node.declare_parameter('Kp', 0.0).value,
             'Kd': node.declare_parameter('Kd', 0.0).value,
             'compliance': node.declare_parameter('compliance', 0.0).value,
@@ -221,6 +224,12 @@ class SimpleWrapper(AbstractSimulatorWrapper):
 
         self.init_simple()
 
+        # Prepare viewer
+        if not self.params['headless']:
+            self.q_viewer_queue = queue.Queue(maxsize=1)  # Only keep the latest q
+            self.viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
+            self.viewer_thread.start()
+
     def init_simple(self):
         # Start the robot in crouch pose 15cm above the ground
         initial_q = np.array([0, 0, 0.15, 0, 0, 0, 1, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0., 0.9, -2.5, 0, 0.9, -2.5])
@@ -237,6 +246,20 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         # Create the simulator object
         self.simulator = SimpleSimulator(self.rmodel, self.robot.collision_model, self.robot.visual_model, initial_q, self.params)
 
+    def _viewer_loop(self):
+        self.robot.initViewer(open=True)
+        self.robot.viz.loadViewerModel()
+        while True:
+            try:
+                q = self.q_viewer_queue.get(timeout=1.0)
+                self.robot.display(q)
+            except queue.Empty:
+                continue
+
+    def _viewer_async_display(self, q):
+        if not self.params['headless'] and not self.q_viewer_queue.full():
+            self.q_viewer_queue.put_nowait(q)
+
     def step(self, tau_cmd):
         # Change torque order from unitree to pinocchio
         torque_simu = np.zeros(self.rmodel.nv)
@@ -246,6 +269,9 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         # Execute step and get new state
         q_current, v_current, a_current, f_current = self.simulator.execute(torque_simu)
 
+        # Display
+        self._viewer_async_display(q_current)
+
         # Reorder state from pinocchio to unitree order
         q_unitree = q_current.copy()
         v_unitree = v_current.copy()
@@ -254,7 +280,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
             q_unitree[7 + i] = q_current[7 + self.joint_order[i]]
             v_unitree[6 + i] = v_current[6 + self.joint_order[i]]
             a_unitree[6 + i] = a_current[6 + self.joint_order[i]]
-        
+
         # Reorder contacts from (FL, FR, RR, RL) to (FR, FL, RR, RL)
         f_unitree = np.array([f_current[1], f_current[0], f_current[3], f_current[2]])
 
