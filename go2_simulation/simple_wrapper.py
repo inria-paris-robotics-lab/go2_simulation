@@ -129,12 +129,22 @@ def removeBVHModelsIfAny(geom_model: pin.GeometryModel):
             gobj.geometry = gobj.geometry.convex
 
 
-def addFloor(geom_model: pin.GeometryModel, visual_model: pin.GeometryModel):   
+def addFloor(robot: pin.RobotWrapper):  
     # Collision object
     floor_collision_shape = hppfcl.Halfspace(0, 0, 1, 0)
     M = pin.SE3.Identity()
     floor_collision_object = pin.GeometryObject("floor", 0, 0, M, floor_collision_shape)
-    geom_model.addGeometryObject(floor_collision_object)
+    robot.collision_model.addGeometryObject(floor_collision_object)
+    robot.collision_data = robot.collision_model.createData()
+
+    # Visual object
+    floor_thickness = 0.01
+    floor_visual_shape = hppfcl.Box(10, 10, floor_thickness)
+    floor_pose = pin.XYZQUATToSE3([0,0,-floor_thickness] + [0,0,0,1])
+    floor_visual_object = pin.GeometryObject("floor", 0, 0, floor_pose, floor_visual_shape)
+    floor_visual_object.meshColor = np.array([0.5,]*4)
+    robot.visual_model.addGeometryObject(floor_visual_object)
+    robot.visual_data = robot.visual_model.createData()
 
 def addSystemCollisionPairs(model, geom_model, qref):
     """
@@ -179,10 +189,8 @@ def addSystemCollisionPairs(model, geom_model, qref):
 class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
-        robot = loadGo2()
-        self.rmodel = robot.model
-        self.geom_model = robot.collision_model
-        self.visual_model = robot.visual_model
+        self.robot = loadGo2()
+        self.rmodel = self.robot.model
 
         # Ignore friction and kinematics limits inside the simulator
         for i in range(self.rmodel.nq):
@@ -218,16 +226,16 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         initial_q = np.array([0, 0, 0.15, 0, 0, 0, 1, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0., 0.9, -2.5, 0, 0.9, -2.5])
 
         # Set simulation properties
-        addFloor(self.geom_model, self.visual_model)
-        setPhysicsProperties(self.geom_model, self.params["material"], self.params["compliance"])
-        removeBVHModelsIfAny(self.geom_model)
-        addSystemCollisionPairs(self.rmodel, self.geom_model, initial_q)
+        addFloor(self.robot)
+        setPhysicsProperties(self.robot.collision_model, self.params["material"], self.params["compliance"])
+        removeBVHModelsIfAny(self.robot.collision_model)
+        addSystemCollisionPairs(self.rmodel, self.robot.collision_model, initial_q)
 
         # Unitree joint ordering (FR, FL, RR, RL)
         self.joint_order = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
 
         # Create the simulator object
-        self.simulator = SimpleSimulator(self.rmodel, self.geom_model, self.visual_model, initial_q, self.params)
+        self.simulator = SimpleSimulator(self.rmodel, self.robot.collision_model, self.robot.visual_model, initial_q, self.params)
 
     def step(self, tau_cmd):
         # Change torque order from unitree to pinocchio
