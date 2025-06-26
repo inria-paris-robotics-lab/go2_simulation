@@ -199,7 +199,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
 
         # Load parameters from node
         self.params = {
-            'headless': node.declare_parameter('headless', False).value,
+            'viewer': node.declare_parameter('viewer', True).value,
             'Kp': node.declare_parameter('Kp', 0.0).value,
             'Kd': node.declare_parameter('Kd', 0.0).value,
             'compliance': node.declare_parameter('compliance', 0.0).value,
@@ -220,7 +220,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         self.init_simple()
 
         # Prepare viewer
-        if not self.params['headless']:
+        if self.params['viewer']:
             self.q_viewer_queue = queue.Queue(maxsize=1)  # Only keep the latest q
             self.viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
             self.viewer_thread.start()
@@ -252,7 +252,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
                 continue
 
     def _viewer_async_display(self, q):
-        if not self.params['headless'] and not self.q_viewer_queue.full():
+        if self.params['viewer'] and not self.q_viewer_queue.full():
             self.q_viewer_queue.put_nowait(q)
 
     def step(self, tau_cmd):
