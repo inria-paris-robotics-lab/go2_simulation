@@ -38,7 +38,7 @@ class Go2Simulation(Node):
             self.simulator = SimpleWrapper(self, timestep)
         elif simulator_name == "pybullet":
             from go2_simulation.bullet_wrapper import BulletWrapper
-            self.simulator = BulletWrapper(timestep)
+            self.simulator = BulletWrapper(self, timestep)
         else:
             self.get_logger().error("Simulation tool not recognized")
 
