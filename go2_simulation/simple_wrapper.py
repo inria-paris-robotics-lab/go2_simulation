@@ -221,9 +221,14 @@ class SimpleWrapper(AbstractSimulatorWrapper):
 
         # Prepare viewer
         if self.params['viewer']:
-            self.q_viewer_queue = queue.Queue(maxsize=1)  # Only keep the latest q
+            self.viewer_q_queue = queue.Queue(maxsize=1)  # Only keep the latest q
+            self.viewer_stop_event = threading.Event()
             self.viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
             self.viewer_thread.start()
+
+    def _del__(self):
+        self.viewer_stop_event.set()
+        self.viewer_thread.join()
 
     def init_simple(self):
         # Start the robot in crouch pose 15cm above the ground
@@ -244,16 +249,16 @@ class SimpleWrapper(AbstractSimulatorWrapper):
     def _viewer_loop(self):
         self.robot.initViewer(open=True)
         self.robot.viz.loadViewerModel()
-        while True:
+        while not self.viewer_stop_event.is_set():
             try:
-                q = self.q_viewer_queue.get(timeout=1.0)
+                q = self.viewer_q_queue.get(timeout=1.0)
                 self.robot.display(q)
             except queue.Empty:
                 continue
 
     def _viewer_async_display(self, q):
-        if self.params['viewer'] and not self.q_viewer_queue.full():
-            self.q_viewer_queue.put_nowait(q)
+        if self.params['viewer'] and not self.viewer_q_queue.full():
+            self.viewer_q_queue.put_nowait(q)
 
     def step(self, tau_cmd):
         # Change torque order from unitree to pinocchio
