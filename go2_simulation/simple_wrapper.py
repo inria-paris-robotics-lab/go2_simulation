@@ -249,6 +249,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
     def _viewer_loop(self):
         self.robot.initViewer(open=True)
         self.robot.viz.loadViewerModel()
+        self.robot.viz.display_collisions = True
         while not self.viewer_stop_event.is_set():
             try:
                 q = self.viewer_q_queue.get(timeout=1.0)
