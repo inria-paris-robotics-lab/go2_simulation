@@ -136,6 +136,11 @@ def addFloor(robot: pin.RobotWrapper):
     robot.collision_model.addGeometryObject(floor_collision_object)
     robot.collision_data = robot.collision_model.createData()
 
+    # Recompute collision pairs
+    robot.collision_model.removeAllCollisionPairs()
+    robot.collision_model.addAllCollisionPairs()
+    pin.removeCollisionPairs(robot.model, robot.collision_model, GO2_DESCRIPTION_SRDF_PATH)
+
     # Visual object
     floor_thickness = 0.01
     floor_visual_shape = hppfcl.Box(10, 10, floor_thickness)
