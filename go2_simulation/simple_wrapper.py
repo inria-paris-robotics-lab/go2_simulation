@@ -72,7 +72,6 @@ class SimpleSimulator:
         self.a = np.zeros(self.model.nv)
         self.f_feet = np.zeros(4)
         self.foot_names = ["FR_foot_0", "FL_foot_0", "RR_foot_0", "RL_foot_0"]
-        self.all_col_pairs = self.simulator.geom_model.collisionPairs.tolist()
 
         self.simulator.reset()
 
@@ -87,14 +86,15 @@ class SimpleSimulator:
         self.a = self.simulator.anew.copy()
 
         # Detect contact through pair of collision
-        current_col_pairs = self.simulator.constraints_problem.pairs_in_collision.tolist()
         self.f_feet = np.zeros(4)
-        for cp_id in current_col_pairs:
-            cp = self.all_col_pairs[cp_id]
+        for cp_id in self.simulator.constraints_problem.pairs_in_collision:
+            cp = self.simulator.geom_model.collisionPairs[cp_id]
             first = self.simulator.geom_model.geometryObjects[cp.first].name
-            second = self.simulator.geom_model.geometryObjects[cp.second].name
-            if (first in self.foot_names) or (second in self.foot_names):
+            if first in self.foot_names:
                 self.f_feet[self.foot_names.index(first)] = 1
+            second = self.simulator.geom_model.geometryObjects[cp.second].name
+            if second in self.foot_names:
+                self.f_feet[self.foot_names.index(second)] = 1
 
         return self.q, self.v, self.a, self.f_feet
 
