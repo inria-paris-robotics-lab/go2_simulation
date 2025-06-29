@@ -1,5 +1,6 @@
 import numpy as np
 from go2_description.loader import loadGo2
+from go2_description import GO2_DESCRIPTION_SRDF_PATH
 import hppfcl
 import pinocchio as pin
 import simple
@@ -144,46 +145,6 @@ def addFloor(robot: pin.RobotWrapper):
     robot.visual_model.addGeometryObject(floor_visual_object)
     robot.visual_data = robot.visual_model.createData()
 
-def addSystemCollisionPairs(model, geom_model, qref):
-    """
-    Add the right collision pairs of a model, given qref.
-    qref is here as a `T-pose`. The function uses this pose to determine which objects are in collision
-    in this ref pose. If objects are in collision, they are not added as collision pairs, as they are considered
-    to always be in collision.
-    """
-    data = model.createData()
-    geom_data = geom_model.createData()
-    pin.updateGeometryPlacements(model, data, geom_model, geom_data, qref)
-    geom_model.removeAllCollisionPairs()
-    num_col_pairs = 0
-    for i in range(len(geom_model.geometryObjects)):
-        for j in range(i+1, len(geom_model.geometryObjects)):
-            # Don't add collision pair if same object
-            if i != j:
-                gobj_i: pin.GeometryObject = geom_model.geometryObjects[i]
-                gobj_j: pin.GeometryObject = geom_model.geometryObjects[j]
-                if gobj_i.name == "floor" or gobj_j.name == "floor":
-                    num_col_pairs += 1
-                    col_pair = pin.CollisionPair(i, j)
-                    geom_model.addCollisionPair(col_pair)
-                else:
-                    if gobj_i.parentJoint != gobj_j.parentJoint or gobj_i.parentJoint == 0:
-                        if gobj_i.parentJoint != model.parents[gobj_j.parentJoint] and gobj_j.parentJoint != model.parents[gobj_i.parentJoint] or gobj_i.parentJoint == 0 or gobj_j.parentJoint == 0:
-                            # Compute collision between the geometries. Only add the collision pair if there is no collision.
-                            M1 = geom_data.oMg[i]
-                            M2 = geom_data.oMg[j]
-                            colreq = hppfcl.CollisionRequest()
-                            colreq.security_margin = 1e-2 # 1cm of clearance
-                            colres = hppfcl.CollisionResult()
-                            hppfcl.collide(gobj_i.geometry, M1, gobj_j.geometry, M2, colreq, colres)
-                            if not colres.isCollision():
-                                num_col_pairs += 1
-                                col_pair = pin.CollisionPair(i, j)
-                                geom_model.addCollisionPair(col_pair)
-    print("Num col pairs = ", num_col_pairs)
-    return num_col_pairs
-
-
 class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
         ########################## Load robot model and geometry
@@ -238,7 +199,6 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         addFloor(self.robot)
         setPhysicsProperties(self.robot.collision_model, self.params["material"], self.params["compliance"])
         removeBVHModelsIfAny(self.robot.collision_model)
-        addSystemCollisionPairs(self.rmodel, self.robot.collision_model, initial_q)
 
         # Unitree joint ordering (FR, FL, RR, RL)
         self.joint_order = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
