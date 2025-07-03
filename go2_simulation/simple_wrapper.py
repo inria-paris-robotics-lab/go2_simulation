@@ -139,12 +139,7 @@ def addFloor(robot: pin.RobotWrapper):
     floor_visual_shape = hppfcl.Box(10, 10, floor_thickness)
     floor_pose = pin.XYZQUATToSE3([0, 0, -floor_thickness] + [0, 0, 0, 1])
     floor_visual_object = pin.GeometryObject("floor", 0, 0, floor_pose, floor_visual_shape)
-    floor_visual_object.meshColor = np.array(
-        [
-            0.5,
-        ]
-        * 4
-    )
+    floor_visual_object.meshColor = 0.5 * np.ones(4)
     robot.visual_model.addGeometryObject(floor_visual_object)
     robot.visual_data = robot.visual_model.createData()
 
