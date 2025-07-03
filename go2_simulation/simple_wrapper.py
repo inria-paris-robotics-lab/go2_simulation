@@ -86,10 +86,10 @@ class SimpleSimulator:
             cp = self.simulator.geom_model.collisionPairs[cp_id]
             first = self.simulator.geom_model.geometryObjects[cp.first].name
             if first in self.foot_names:
-                self.f_feet[self.foot_names.index(first)] = 1
+                self.f_feet[self.foot_names.index(first)] = 39.4  # roughly 1/4 of the robot mass (0th order approx)
             second = self.simulator.geom_model.geometryObjects[cp.second].name
             if second in self.foot_names:
-                self.f_feet[self.foot_names.index(second)] = 1
+                self.f_feet[self.foot_names.index(second)] = 39.4  # roughly 1/4 of the robot mass (0th order approx)
 
         return self.q, self.v, self.a, self.f_feet
 
