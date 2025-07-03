@@ -9,10 +9,11 @@ from tf2_ros import TransformBroadcaster
 from geometry_msgs.msg import TransformStamped
 from go2_simulation.abstract_wrapper import AbstractSimulatorWrapper
 
+
 class Go2Simulation(Node):
     def __init__(self):
-        super().__init__('go2_simulation')
-        simulator_name = self.declare_parameter('simulator', rclpy.Parameter.Type.STRING).value
+        super().__init__("go2_simulation")
+        simulator_name = self.declare_parameter("simulator", rclpy.Parameter.Type.STRING).value
 
         ########################### State publisher
         self.lowstate_publisher = self.create_publisher(LowState, "/lowstate", 10)
@@ -20,7 +21,7 @@ class Go2Simulation(Node):
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Timer to publish periodically
-        self.high_level_period = 1./500 # seconds
+        self.high_level_period = 1.0 / 500  # seconds
         self.low_level_sub_step = 12
         self.timer = self.create_timer(self.high_level_period, self.update)
 
@@ -35,9 +36,11 @@ class Go2Simulation(Node):
         self.simulator: AbstractSimulatorWrapper = None
         if simulator_name == "simple":
             from go2_simulation.simple_wrapper import SimpleWrapper
+
             self.simulator = SimpleWrapper(self, timestep)
         elif simulator_name == "pybullet":
             from go2_simulation.bullet_wrapper import BulletWrapper
+
             self.simulator = BulletWrapper(self, timestep)
         else:
             self.get_logger().error("Simulation tool not recognized")
@@ -48,18 +51,21 @@ class Go2Simulation(Node):
         self.a_current = np.zeros(6 + 12)
         self.f_current = np.zeros(4)
 
-
     def update(self):
         ## Control robot
-        q_des   = np.array([self.last_cmd_msg.motor_cmd[i].q   for i in range(12)])
-        v_des   = np.array([self.last_cmd_msg.motor_cmd[i].dq  for i in range(12)])
+        q_des = np.array([self.last_cmd_msg.motor_cmd[i].q for i in range(12)])
+        v_des = np.array([self.last_cmd_msg.motor_cmd[i].dq for i in range(12)])
         tau_des = np.array([self.last_cmd_msg.motor_cmd[i].tau for i in range(12)])
-        kp_des  = np.array([self.last_cmd_msg.motor_cmd[i].kp  for i in range(12)])
-        kd_des  = np.array([self.last_cmd_msg.motor_cmd[i].kd  for i in range(12)])
+        kp_des = np.array([self.last_cmd_msg.motor_cmd[i].kp for i in range(12)])
+        kd_des = np.array([self.last_cmd_msg.motor_cmd[i].kd for i in range(12)])
 
         for _ in range(self.low_level_sub_step):
             # Iterate to simulate motor internal controller
-            tau_cmd = tau_des - np.multiply(self.q_current[7:]-q_des, kp_des) - np.multiply(self.v_current[6:]-v_des, kd_des)
+            tau_cmd = (
+                tau_des
+                - np.multiply(self.q_current[7:] - q_des, kp_des)
+                - np.multiply(self.v_current[6:] - v_des, kd_des)
+            )
             # Simulator outputs base velocity and acceleration in local frame
             self.q_current, self.v_current, self.a_current, self.f_current = self.simulator.step(tau_cmd)
 
@@ -81,8 +87,8 @@ class Go2Simulation(Node):
 
         # Format IMU
         quat_xyzw = self.q_current[3:7].tolist()
-        l_angular_vel = self.v_current[3:6] # In local frame
-        l_linear_acc = self.a_current[0:3] # In local frame
+        l_angular_vel = self.v_current[3:6]  # In local frame
+        l_linear_acc = self.a_current[0:3]  # In local frame
 
         # Rearrange quaternion
         quat_wxyz = quat_xyzw[-1:] + quat_xyzw[:-1]
@@ -90,7 +96,9 @@ class Go2Simulation(Node):
 
         # Convert gravity from world to local frame
         rot_mat = R.from_quat(quat_xyzw).as_matrix()
-        gravity = rot_mat @ np.array([0, 0, 9.81]) # This seems wrong. Proper computation should be done between base and imu frame
+        gravity = rot_mat @ np.array(
+            [0, 0, 9.81]
+        )  # This seems wrong. Proper computation should be done between base and imu frame
 
         imu_acc = l_linear_acc + gravity
 
@@ -136,6 +144,7 @@ class Go2Simulation(Node):
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
 
+
 def main(args=None):
     rclpy.init(args=args)
     try:
@@ -148,6 +157,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-

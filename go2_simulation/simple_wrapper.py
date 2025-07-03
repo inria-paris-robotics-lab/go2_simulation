@@ -8,6 +8,7 @@ from go2_simulation.abstract_wrapper import AbstractSimulatorWrapper
 import threading
 import queue
 
+
 class SimpleSimulator:
     def __init__(self, model, geom_model, q0, args):
         self.model = model
@@ -36,7 +37,7 @@ class SimpleSimulator:
         self.simulator.admm_constraint_solver_settings.relative_precision = args["tol_rel"]
         self.simulator.admm_constraint_solver_settings.max_iter = args["maxit"]
         self.simulator.admm_constraint_solver_settings.mu = args["mu_prox"]
-        # pgs 
+        # pgs
         self.simulator.pgs_constraint_solver_settings.absolute_precision = args["tol"]
         self.simulator.pgs_constraint_solver_settings.relative_precision = args["tol_rel"]
         self.simulator.pgs_constraint_solver_settings.max_iter = args["maxit"]
@@ -44,22 +45,16 @@ class SimpleSimulator:
         self.simulator.warm_start_constraint_forces = args["warm_start"]
         self.simulator.measure_timings = True
         # Contact patch settings
-        self.simulator.constraints_problem.setMaxNumberOfContactsPerCollisionPair(
-            args["max_patch_size"]
-        )
+        self.simulator.constraints_problem.setMaxNumberOfContactsPerCollisionPair(args["max_patch_size"])
         # Baumgarte settings
         contact_constraints = self.simulator.constraints_problem.frictional_point_constraint_models
         for i in range(len(contact_constraints)):
             contact_constraints[i].baumgarte_corrector_parameters.Kp = args["Kp"]
             contact_constraints[i].baumgarte_corrector_parameters.Kd = args["Kd"]
         if args["admm_update_rule"] == "spectral":
-            self.simulator.admm_constraint_solver_settings.admm_update_rule = (
-                pin.ADMMUpdateRule.SPECTRAL
-            )
+            self.simulator.admm_constraint_solver_settings.admm_update_rule = pin.ADMMUpdateRule.SPECTRAL
         elif args["admm_update_rule"] == "linear":
-            self.simulator.admm_constraint_solver_settings.admm_update_rule = (
-                pin.ADMMUpdateRule.LINEAR
-            )
+            self.simulator.admm_constraint_solver_settings.admm_update_rule = pin.ADMMUpdateRule.LINEAR
         else:
             update_rule = args["admm_update_rule"]
             print(f"ERROR - no match for admm update rule {update_rule}")
@@ -99,9 +94,7 @@ class SimpleSimulator:
         return self.q, self.v, self.a, self.f_feet
 
 
-def setPhysicsProperties(
-    geom_model: pin.GeometryModel, material: str, compliance: float
-):
+def setPhysicsProperties(geom_model: pin.GeometryModel, material: str, compliance: float):
     for gobj in geom_model.geometryObjects:
         if material == "ice":
             gobj.physicsMaterial.materialType = pin.PhysicsMaterialType.ICE
@@ -128,7 +121,7 @@ def removeBVHModelsIfAny(geom_model: pin.GeometryModel):
             gobj.geometry = gobj.geometry.convex
 
 
-def addFloor(robot: pin.RobotWrapper):  
+def addFloor(robot: pin.RobotWrapper):
     # Collision object
     floor_collision_shape = hppfcl.Halfspace(0, 0, 1, 0)
     M = pin.SE3.Identity()
@@ -144,11 +137,17 @@ def addFloor(robot: pin.RobotWrapper):
     # Visual object
     floor_thickness = 0.01
     floor_visual_shape = hppfcl.Box(10, 10, floor_thickness)
-    floor_pose = pin.XYZQUATToSE3([0,0,-floor_thickness] + [0,0,0,1])
+    floor_pose = pin.XYZQUATToSE3([0, 0, -floor_thickness] + [0, 0, 0, 1])
     floor_visual_object = pin.GeometryObject("floor", 0, 0, floor_pose, floor_visual_shape)
-    floor_visual_object.meshColor = np.array([0.5,]*4)
+    floor_visual_object.meshColor = np.array(
+        [
+            0.5,
+        ]
+        * 4
+    )
     robot.visual_model.addGeometryObject(floor_visual_object)
     robot.visual_data = robot.visual_model.createData()
+
 
 class SimpleWrapper(AbstractSimulatorWrapper):
     def __init__(self, node, timestep):
@@ -159,34 +158,34 @@ class SimpleWrapper(AbstractSimulatorWrapper):
         # Ignore friction and kinematics limits inside the simulator
         for i in range(self.rmodel.nq):
             self.rmodel.lowerPositionLimit[i] = np.finfo("d").min
-            self.rmodel.upperPositionLimit[i] = np.finfo("d").max 
+            self.rmodel.upperPositionLimit[i] = np.finfo("d").max
         self.rmodel.lowerDryFrictionLimit[:] = 0
         self.rmodel.upperDryFrictionLimit[:] = 0
 
         # Load parameters from node
         self.params = {
-            'viewer': node.declare_parameter('viewer', True).value,
-            'Kp': node.declare_parameter('Kp', 0.0).value,
-            'Kd': node.declare_parameter('Kd', 0.0).value,
-            'compliance': node.declare_parameter('compliance', 0.0).value,
-            'material': node.declare_parameter('material', 'metal').value,
-            'horizon': node.declare_parameter('horizon', 1000).value,
-            'dt': timestep,
-            'tol': node.declare_parameter('tol', 1e-6).value,
-            'tol_rel': node.declare_parameter('tol_rel', 1e-6).value,
-            'mu_prox': node.declare_parameter('mu_prox', 1e-4).value,
-            'maxit': node.declare_parameter('maxit', 100).value,
-            'warm_start': node.declare_parameter('warm_start', 1).value,
-            'contact_solver': node.declare_parameter('contact_solver', 'ADMM').value,
-            'admm_update_rule': node.declare_parameter('admm_update_rule', 'spectral').value,
-            'max_patch_size': node.declare_parameter('max_patch_size', 2).value,
-            'patch_tolerance': node.declare_parameter('patch_tolerance', 1e-2).value,
+            "viewer": node.declare_parameter("viewer", True).value,
+            "Kp": node.declare_parameter("Kp", 0.0).value,
+            "Kd": node.declare_parameter("Kd", 0.0).value,
+            "compliance": node.declare_parameter("compliance", 0.0).value,
+            "material": node.declare_parameter("material", "metal").value,
+            "horizon": node.declare_parameter("horizon", 1000).value,
+            "dt": timestep,
+            "tol": node.declare_parameter("tol", 1e-6).value,
+            "tol_rel": node.declare_parameter("tol_rel", 1e-6).value,
+            "mu_prox": node.declare_parameter("mu_prox", 1e-4).value,
+            "maxit": node.declare_parameter("maxit", 100).value,
+            "warm_start": node.declare_parameter("warm_start", 1).value,
+            "contact_solver": node.declare_parameter("contact_solver", "ADMM").value,
+            "admm_update_rule": node.declare_parameter("admm_update_rule", "spectral").value,
+            "max_patch_size": node.declare_parameter("max_patch_size", 2).value,
+            "patch_tolerance": node.declare_parameter("patch_tolerance", 1e-2).value,
         }
 
         self.init_simple()
 
         # Prepare viewer
-        if self.params['viewer']:
+        if self.params["viewer"]:
             self.viewer_q_queue = queue.Queue(maxsize=1)  # Only keep the latest q
             self.viewer_stop_event = threading.Event()
             self.viewer_thread = threading.Thread(target=self._viewer_loop, daemon=True)
@@ -198,7 +197,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
 
     def init_simple(self):
         # Start the robot in crouch pose 15cm above the ground
-        initial_q = np.array([0, 0, 0.15, 0, 0, 0, 1, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0., 0.9, -2.5, 0, 0.9, -2.5])
+        initial_q = np.array([0, 0, 0.15, 0, 0, 0, 1, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0.0, 0.9, -2.5, 0, 0.9, -2.5])
 
         # Set simulation properties
         addFloor(self.robot)
@@ -223,7 +222,7 @@ class SimpleWrapper(AbstractSimulatorWrapper):
                 continue
 
     def _viewer_async_display(self, q):
-        if self.params['viewer'] and not self.viewer_q_queue.full():
+        if self.params["viewer"] and not self.viewer_q_queue.full():
             self.viewer_q_queue.put_nowait(q)
 
     def step(self, tau_cmd):
