@@ -142,6 +142,6 @@ class BulletWrapper(AbstractSimulatorWrapper):
             for id in self.env_ids:
                 contact_points += pybullet.getClosestPoints(self.robot, id, 0.005, joint_idx)
             if len(contact_points) > 0:  # If contact
-                f_current[i] = 100  # arbitrary value for now
+                f_current[i] = 39.4  # roughly 1/4 of the robot mass (0th order approx)
 
         return q_current, v_current, a_current, f_current

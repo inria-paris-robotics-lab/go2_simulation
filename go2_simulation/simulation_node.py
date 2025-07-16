@@ -83,7 +83,8 @@ class Go2Simulation(Node):
             low_msg.motor_state[joint_idx].dq = self.v_current[6 + joint_idx]
 
         # Contact sensors reading
-        low_msg.foot_force = self.f_current.astype(np.int32).tolist()
+        ## See https://github.com/inria-paris-robotics-lab/go2_simulation/issues/6
+        low_msg.foot_force = (14.2 * np.ones(4) + 0.562 * self.f_current).astype(np.int32).tolist()
 
         # Format IMU
         quat_xyzw = self.q_current[3:7].tolist()
