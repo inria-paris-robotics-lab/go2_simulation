@@ -45,9 +45,9 @@ class SimpleSimulator:
         self.simulator.warm_start_constraint_forces = args["warm_start"]
         self.simulator.measure_timings = True
         # Contact patch settings
-        self.simulator.constraints_problem.setMaxNumberOfContactsPerCollisionPair(args["max_patch_size"])
+        self.simulator.constraint_problem.setMaxNumberOfContactsPerCollisionPair(args["max_patch_size"])
         # Baumgarte settings
-        contact_constraints = self.simulator.constraints_problem.frictional_point_constraint_models
+        contact_constraints = self.simulator.constraint_problem.frictional_point_constraint_models
         for i in range(len(contact_constraints)):
             contact_constraints[i].baumgarte_corrector_parameters.Kp = args["Kp"]
             contact_constraints[i].baumgarte_corrector_parameters.Kd = args["Kd"]
@@ -82,7 +82,7 @@ class SimpleSimulator:
 
         # Detect contact through pair of collision
         self.f_feet = np.zeros(4)
-        for cp_id in self.simulator.constraints_problem.pairs_in_collision:
+        for cp_id in self.simulator.constraint_problem.pairs_in_collision:
             cp = self.simulator.geom_model.collisionPairs[cp_id]
             first = self.simulator.geom_model.geometryObjects[cp.first].name
             if first in self.foot_names:
