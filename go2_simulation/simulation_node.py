@@ -142,6 +142,13 @@ class Go2Simulation(Node):
         transform_msg.transform.rotation.w = self.q_current[6]
         self.tf_broadcaster.sendTransform(transform_msg)
 
+        # Check that the simulator is on time
+        if self.timer.time_until_next_call() < 0:
+            ratio = 1.0 - self.timer.time_until_next_call() * 1e-9 / self.high_level_period
+            self.get_logger().warn(
+                "Simulator running slower than real time! Real time ratio : %.2f " % ratio, throttle_duration_sec=0.1
+            )
+
     def receive_cmd_cb(self, msg):
         self.last_cmd_msg = msg
 
