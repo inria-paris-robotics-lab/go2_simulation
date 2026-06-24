@@ -167,16 +167,20 @@ class G1Configuration(RobotConfigurationAbstract):
 
     @property
     def mjcf_path(self) -> str:
-        # MuJoCo sim-to-sim model, dof-switched like `urdf_path`. Located via
-        # WBT_G1_MJCF_DIR (exported by deploy.py for `--simulator mujoco`) so the
-        # colcon-installed package needs no copy of the MJCF + meshes.
+        # MuJoCo sim-to-sim scene, dof-switched like `urdf_path`. We load holosoma's
+        # own WBT physics scene (robot + plane + Newton solver, collisions enabled) —
+        # NOT the holosoma_retargeting model, whose geoms are contype=0 (visual only)
+        # so the robot has no foot/ground contact and falls. Located via WBT_G1_MJCF_DIR
+        # (exported by deploy.py for `--simulator mujoco`) so the colcon-installed
+        # package needs no copy of the meshes.
         model_dir = os.environ.get("WBT_G1_MJCF_DIR")
         if not model_dir:
             raise RuntimeError(
                 "WBT_G1_MJCF_DIR is not set. deploy.py exports it for `--simulator mujoco`; "
-                "point it at the dir holding g1_27dof.xml / g1_29dof.xml."
+                "point it at the scenes dir holding scene_g1_27dof_wbt_plane.xml / "
+                "scene_g1_29dof_wbt_plane.xml."
             )
-        fname = "g1_29dof.xml" if self._dof == 29 else "g1_27dof.xml"
+        fname = "scene_g1_29dof_wbt_plane.xml" if self._dof == 29 else "scene_g1_27dof_wbt_plane.xml"
         return os.path.join(model_dir, fname)
 
     @property

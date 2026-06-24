@@ -61,9 +61,11 @@ class MujocoWrapper(AbstractSimulatorWrapper):
         # PyBullet's 0.5), so this usually matches Isaac without help; we still pin the
         # ground geom for parity with BulletWrapper when the config asks for it.
         if robot_config.lateral_friction is not None:
-            ground_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "ground")
-            if ground_id != -1:
-                self.model.geom_friction[ground_id, 0] = robot_config.lateral_friction
+            for gname in ("floor", "ground"):
+                gid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, gname)
+                if gid != -1:
+                    self.model.geom_friction[gid, 0] = robot_config.lateral_friction
+                    break
 
         # Base free joint addressing.
         self.base_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
