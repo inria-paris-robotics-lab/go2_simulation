@@ -57,6 +57,21 @@ class BulletWrapper(AbstractSimulatorWrapper):
         # gravity and feet friction
         pybullet.setGravity(0, 0, -9.81)
 
+        # Contact friction — match Isaac Sim. PyBullet defaults every body to
+        # lateralFriction=0.5 and combines friction multiplicatively at contact, so
+        # the feet (0.5) on the ground plane (1.0) give an effective 0.5 and the
+        # robot slips. Isaac trains with terrain friction 1.0 (multiplicative
+        # combine) and a foot material centred on ~1.0 -> effective ~1.0. Pin the
+        # ground to 1.0 and the feet to `lateral_friction`, so the effective
+        # foot/ground coefficient equals `lateral_friction`.
+        if robot_config.lateral_friction is not None:
+            mu = robot_config.lateral_friction
+            pybullet.changeDynamics(self.plane_id, -1, lateralFriction=1.5)
+            for foot_name in robot_config.foot_link_names:
+                foot_id = self.get_link_id(foot_name)
+                if foot_id is not None:
+                    pybullet.changeDynamics(self.robot, foot_id, lateralFriction=mu)
+
         # Locked base constraint ID
         self.fixed_base_constraint = None
 
@@ -71,7 +86,7 @@ class BulletWrapper(AbstractSimulatorWrapper):
         # Set robot initial config on the ground
         pybullet.resetBasePositionAndOrientation(self.robot, self.q_start[:3], self.q_start[3:7])
         for i, id in enumerate(self.joint_bullet_id):
-            if id:
+            if id is not None:
                 pybullet.resetJointState(self.robot, id, self.q_start[7 + i])
 
         # Somehow this disable joint friction
@@ -117,6 +132,19 @@ class BulletWrapper(AbstractSimulatorWrapper):
                 continue
             return i
         return None  # Joint name not found
+
+    def get_link_id(self, link_name):
+        """
+        Returns the pybullet link index whose link name matches `link_name`
+        (in pybullet the link index equals the index of the joint it is a child of),
+        or None if no link matches.
+        """
+        num_joints = pybullet.getNumJoints(self.robot)
+        for i in range(num_joints):
+            joint_info = pybullet.getJointInfo(self.robot, i)
+            if joint_info[12].decode("utf-8") == link_name:
+                return i
+        return None  # Link name not found
 
     def step(self, tau_cmd):
         # Set actuation

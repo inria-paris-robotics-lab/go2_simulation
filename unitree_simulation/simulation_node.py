@@ -17,6 +17,10 @@ class UnitreeSimulation(Node):
         simulator_name = self.declare_parameter("simulator", rclpy.Parameter.Type.STRING).value
         robot_name = self.declare_parameter("robot", rclpy.Parameter.Type.STRING).value
         self.unlock_base_default = self.declare_parameter("unlock_base", rclpy.Parameter.Type.BOOL).value
+        # Actuated G1 DOF (27 or 29), threaded from deploy.py --g1-dof. Selects the
+        # URDF variant in G1Configuration. Default 27 preserves the previous behaviour;
+        # ignored for go2.
+        g1_dof = self.declare_parameter("dof", 27).value
 
         ########################## Robot configuration
         if robot_name is None:
@@ -27,7 +31,7 @@ class UnitreeSimulation(Node):
         if robot_name.lower() == "g1":
             from unitree_simulation.robots_configuration import G1Configuration
 
-            self.robot = G1Configuration()
+            self.robot = G1Configuration(dof=g1_dof)
         elif robot_name.lower() == "go2":
             from unitree_simulation.robots_configuration import Go2Configuration
 

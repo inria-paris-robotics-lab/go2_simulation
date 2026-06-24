@@ -1,4 +1,10 @@
-from unitree_description import GO2_DESCRIPTION_URDF_PATH, G1_DESCRIPTION_URDF_PATH
+import os
+
+from unitree_description import (
+    GO2_DESCRIPTION_URDF_PATH,
+    G1_DESCRIPTION_URDF_PATH,
+    G1_DESCRIPTION_MODEL_DIR,
+)
 from abc import ABC, abstractmethod
 from unitree_go.msg import LowState as LowStateGo2, LowCmd as LowCmdGo2
 from unitree_hg.msg import LowState as LowStateG1, LowCmd as LowCmdG1
@@ -60,13 +66,41 @@ class RobotConfigurationAbstract(ABC):
     def n_dof(self) -> int:
         return len(self.joint_names)
 
+    @property
+    def lateral_friction(self):
+        """Effective foot/ground lateral friction to enforce in the simulator.
+
+        None -> keep the simulator defaults. PyBullet defaults every body to 0.5
+        and combines friction multiplicatively at contact, so feet (0.5) on the
+        ground plane (1.0) give an effective ~0.5 and the robot slips. Isaac Sim
+        trains with terrain friction 1.0 (multiplicative combine) and a foot
+        material centred on ~1.0, i.e. an effective ~1.0.
+        """
+        return None
+
+    @property
+    def foot_link_names(self) -> List[str]:
+        """URDF link names of the feet that receive `lateral_friction`."""
+        return []
+
     @abstractmethod
     def foot_force_to_val(self, force):
         pass
 
 
 class G1Configuration(RobotConfigurationAbstract):
-    def __init__(self):
+    def __init__(self, dof: int = 27):
+        # dof selects the URDF variant only. The joint list / n_dof stay 29 in
+        # BOTH cases: the unitree LowCmd is always laid out on the 29-DOF canonical
+        # order (waist_roll=13, waist_pitch=14), and the BulletWrapper maps the two
+        # waist joints to None when they are `fixed` in the URDF.
+        #   - 27 (mode 6): g1.urdf, waist_roll/pitch FIXED -> held rigid (commands
+        #     for idx 13/14 arrive with kp=0, so a revolute waist would go limp).
+        #   - 29 (mode 5): g1_29dof.urdf, waist_roll/pitch REVOLUTE -> actuated.
+        if dof not in (27, 29):
+            raise ValueError(f"G1 dof must be 27 or 29, got {dof}")
+        self._dof = dof
+
         joint_name_unitree_order = [
             "left_hip_pitch_joint",
             "left_hip_roll_joint",
@@ -120,6 +154,10 @@ class G1Configuration(RobotConfigurationAbstract):
 
     @property
     def urdf_path(self) -> str:
+        # 29-DOF uses a sibling URDF (waist_roll/pitch revolute). Built from the
+        # installed model dir so no new path constant / rebuild of path.py is needed.
+        if self._dof == 29:
+            return os.path.join(G1_DESCRIPTION_MODEL_DIR, "g1_29dof.urdf")
         return G1_DESCRIPTION_URDF_PATH
 
     @property
@@ -133,6 +171,16 @@ class G1Configuration(RobotConfigurationAbstract):
     @property
     def feet_sensors_names(self) -> List[str]:
         return []
+
+    @property
+    def lateral_friction(self):
+        # Match Isaac Sim's effective foot/ground friction (~1.0). Without this the
+        # feet keep PyBullet's 0.5 default and the robot slips.
+        return 1.0
+
+    @property
+    def foot_link_names(self) -> List[str]:
+        return ["left_ankle_roll_link", "right_ankle_roll_link"]
 
     @property
     def lowstate_msgs_type(self):
