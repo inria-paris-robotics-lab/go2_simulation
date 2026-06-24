@@ -83,6 +83,11 @@ class RobotConfigurationAbstract(ABC):
         """URDF link names of the feet that receive `lateral_friction`."""
         return []
 
+    @property
+    def mjcf_path(self) -> str:
+        """Path to the robot's MuJoCo MJCF model (sim-to-sim). Override per robot."""
+        raise NotImplementedError("No MuJoCo (MJCF) model configured for this robot.")
+
     @abstractmethod
     def foot_force_to_val(self, force):
         pass
@@ -159,6 +164,20 @@ class G1Configuration(RobotConfigurationAbstract):
         if self._dof == 29:
             return os.path.join(G1_DESCRIPTION_MODEL_DIR, "g1_29dof.urdf")
         return G1_DESCRIPTION_URDF_PATH
+
+    @property
+    def mjcf_path(self) -> str:
+        # MuJoCo sim-to-sim model, dof-switched like `urdf_path`. Located via
+        # WBT_G1_MJCF_DIR (exported by deploy.py for `--simulator mujoco`) so the
+        # colcon-installed package needs no copy of the MJCF + meshes.
+        model_dir = os.environ.get("WBT_G1_MJCF_DIR")
+        if not model_dir:
+            raise RuntimeError(
+                "WBT_G1_MJCF_DIR is not set. deploy.py exports it for `--simulator mujoco`; "
+                "point it at the dir holding g1_27dof.xml / g1_29dof.xml."
+            )
+        fname = "g1_29dof.xml" if self._dof == 29 else "g1_27dof.xml"
+        return os.path.join(model_dir, fname)
 
     @property
     def q_start(self) -> List[float]:

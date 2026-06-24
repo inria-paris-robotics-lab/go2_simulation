@@ -14,7 +14,7 @@ setup(
         ("share/" + package_name + "/config", glob("config/*")),
         ("share/" + package_name + "/data/assets", glob("data/assets/*")),
     ],
-    install_requires=["setuptools", "pybullet"],
+    install_requires=["setuptools", "pybullet", "mujoco"],
     zip_safe=True,
     maintainer="root",
     maintainer_email="earlaud@inria.fr",

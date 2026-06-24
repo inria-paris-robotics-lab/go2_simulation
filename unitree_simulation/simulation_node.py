@@ -46,8 +46,12 @@ class UnitreeSimulation(Node):
             from unitree_simulation.bullet_wrapper import BulletWrapper
 
             self.simulator = BulletWrapper(self.robot)
+        elif simulator_name == "mujoco":
+            from unitree_simulation.mujoco_wrapper import MujocoWrapper
+
+            self.simulator = MujocoWrapper(self.robot)
         else:
-            self.get_logger().error("Simulation tool not recognized, please set parameter to 'simple' or 'pybullet'.")
+            self.get_logger().error("Simulation tool not recognized, please set parameter to 'pybullet' or 'mujoco'.")
             exit()
 
         ########################## Initial state

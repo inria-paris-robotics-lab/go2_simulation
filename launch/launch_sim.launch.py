@@ -8,7 +8,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     # Declare launch arguments for parameters
     simulator_arg = DeclareLaunchArgument(
-        "simulator", default_value="pybullet", description="Which simulator to use 'pybullet'"
+        "simulator", default_value="pybullet", description="Which simulator to use: 'pybullet' or 'mujoco'"
     )
 
     robot_arg = DeclareLaunchArgument("robot", description="Which robot to simulate 'go2' or 'g1'")
