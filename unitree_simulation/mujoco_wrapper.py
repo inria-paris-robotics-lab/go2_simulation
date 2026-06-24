@@ -117,6 +117,15 @@ class MujocoWrapper(AbstractSimulatorWrapper):
 
         self.reset()
 
+        # Startup diagnostic (shown in the sim tmux pane) — which model loaded and
+        # whether the feet make ground contact at spawn.
+        print(
+            f"[MujocoWrapper] {os.path.basename(mjcf_path)} | nq={self.model.nq} nv={self.model.nv} "
+            f"nu={self.model.nu} ngeom={self.model.ngeom} | spawn base_z="
+            f"{float(self.data.qpos[self.base_qpos_adr + 2]):.3f} initial_contacts={self.data.ncon}",
+            flush=True,
+        )
+
     def _pin_base(self):
         self.data.qpos[self.base_qpos_adr : self.base_qpos_adr + 7] = self._locked_base_qpos
         self.data.qvel[self.base_qvel_adr : self.base_qvel_adr + 6] = 0.0
