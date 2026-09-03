@@ -148,14 +148,14 @@ class BulletWrapper(AbstractSimulatorWrapper):
 
         # Offset pos because pybullet doesn't use the same origin
         rot_mat = R.from_quat(angular_pose).as_matrix()
-        linear_pose += rot_mat @ self.localInertiaPos
+        linear_pose -= rot_mat @ self.localInertiaPos
 
         # Transform from Local world aligned to local
         linear_vel = rot_mat.T @ linear_vel
         angular_vel = rot_mat.T @ angular_vel
 
         # Take base offset into account for linear velocity
-        linear_vel += rot_mat.T @ np.cross(self.localInertiaPos, angular_vel)
+        linear_vel += np.cross(self.localInertiaPos, angular_vel)
 
         q_current = np.concatenate((np.array(linear_pose), np.array(angular_pose), joint_position))
         v_current = np.concatenate((np.array(linear_vel), np.array(angular_vel), joint_velocity))
